@@ -19,9 +19,9 @@ std::ofstream nodinfofile("snake.mov");
 void ChronoIOManager::DumpNodInfo() {
   nodinfofile << std::setprecision(8);
   nodinfofile << std::scientific;
-  const size_t nnodes = mChSys->Get_bodylist()->size();
+  const size_t nnodes = ch_system_->Get_bodylist()->size();
   for (unsigned int i = 0; i < nnodes; ++i) {
-    ChBody *curbody = (*mChSys->Get_bodylist())[i];
+    ChBody *curbody = (*ch_system_->Get_bodylist())[i];
     if (curbody->GetIdentifier() == -1)
       continue;
     nodinfofile << curbody->GetIdentifier() << " ";
@@ -42,8 +42,8 @@ void ChronoIOManager::DumpJntInfo() {
   jntinfofile << std::setprecision(8);
   jntinfofile << std::scientific;
   std::vector<ChLink *>::iterator itr;
-  for (itr = mChSys->Get_linklist()->begin();
-       itr != mChSys->Get_linklist()->end(); ++itr) {
+  for (itr = ch_system_->Get_linklist()->begin();
+       itr != ch_system_->Get_linklist()->end(); ++itr) {
     ChVector<> localforce = (*itr)->Get_react_force();
     double localtorque = ((chrono::ChLinkEngine *)*itr)->Get_mot_torque();
     jntinfofile << (*itr)->GetIdentifier() << " ";
@@ -61,7 +61,7 @@ void ChronoIOManager::DumpContact() {
   std::map<ChBody *, ChVector<> > forcemap;
   std::map<ChBody *, ChVector<> > torquemap;
   ChContactContainerBase *syscot =
-      (ChContactContainerBase *)(mChSys->GetContactContainer());
+      (ChContactContainerBase *)(ch_system_->GetContactContainer());
   std::list<ChContact *> contactlist = syscot->GetContactList();
   std::list<ChContact *>::const_iterator itr = contactlist.begin();
   for (; itr != contactlist.end(); ++itr) {
@@ -96,9 +96,9 @@ void ChronoIOManager::DumpContact() {
 
 std::ofstream rftinfofile("snake.rft");
 void ChronoIOManager::DumpRFTInfo() {
-  const size_t nnodes = mRFTBodyList->size();
+  const size_t nnodes = body_list_->size();
   for (int i = 0; i < nnodes; ++i) {
-    rftinfofile << (*mRFTBodyList)[i].GetChBody()->GetIdentifier() << " ";
-    rftinfofile << (*mRFTBodyList)[i].flist_ << "\n";
+    rftinfofile << (*body_list_)[i].GetChBody()->GetIdentifier() << " ";
+    rftinfofile << (*body_list_)[i].flist_ << "\n";
   }
 }

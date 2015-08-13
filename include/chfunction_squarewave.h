@@ -13,40 +13,41 @@ inline double matlabmod(double x, double y) {
 
 namespace chrono {
 class ChFunction_SquareWave : public ChFunction {
-protected:
-  // the "ON" ratio;
-  double mRatio;
-  // the period of cycle
-  double mPeriod;
-  // the
-  double mValue;
-  double mOffset;
-
 public:
   ChFunction_SquareWave() {
-    mRatio = 0.5;
-    mPeriod = 1;
-    mValue = 1;
-    mOffset = 0;
+    ratio_ = 0.5;
+    period_ = 1;
+    value_ = 1;
+    offset_ = 0;
   }
   ChFunction_SquareWave(double r, double p, double v, double o)
-      : mRatio(r), mPeriod(p), mValue(v), mOffset(o) {}
+      : ratio_(r), period_(p), value_(v), offset_(o) {}
   ~ChFunction_SquareWave() {}
 
   ChFunction *new_Duplicate() {
-    return new ChFunction_SquareWave(mRatio, mPeriod, mValue, mOffset);
+    return new ChFunction_SquareWave(ratio_, period_, value_, offset_);
   }
   int Get_Type() { return 9527; }
   double Get_y(double x) {
     // warning, fmod give negative value for negative x
-    double ip = matlabmod(x - mOffset, mPeriod) / mPeriod;
-    if (ip < mRatio) {
+    double ip = matlabmod(x - offset_, period_) / period_;
+    if (ip < ratio_) {
       // it is on
-      return mValue;
+      return value_;
     } else
       return 0;
   }
   double Get_y_dx(double x) { return 0; }
+
+protected:
+  // the "ON" ratio;
+  double ratio_;
+  // the period of cycle
+  double period_;
+  // the
+  double value_;
+  double offset_;
 };
-}
+} // namespace chrono
+
 #endif // INCLUDE_CHFUNCTION_SQUAREWAVE_H_

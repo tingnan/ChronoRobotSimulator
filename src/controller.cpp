@@ -31,15 +31,15 @@ void ReadCSV(std::ifstream &inputfile, std::vector<double> &time,
   }
 }
 
-RobotController::RobotController() : mSnakeParams(NULL) {}
+RobotController::RobotController() : robot_params_(NULL) {}
 
 void RobotController::PositionControl() {
-  double kk = mSnakeParams->k;
-  double AA = mSnakeParams->A;
-  double ww = mSnakeParams->w;
+  double kk = robot_params_->k;
+  double AA = robot_params_->A;
+  double ww = robot_params_->w;
 
-  for (int i = 0; i < mEngines.size(); ++i) {
-    ChLinkEngine *mylink = mEngines[i];
+  for (int i = 0; i < motors_.size(); ++i) {
+    ChLinkEngine *mylink = motors_[i];
     mylink->Set_eng_mode(ChLinkEngine::ENG_MODE_ROTATION);
     ChSharedPtr<ChFunction_Sine> rotfunc(
         new ChFunction_Sine(double(i * 2) / kk * CH_C_2PI, ww, AA));
@@ -48,9 +48,9 @@ void RobotController::PositionControl() {
 }
 
 void RobotController::ActiveLifting() {
-  for (int i = 0; i < mEngines.size(); ++i) {
+  for (int i = 0; i < motors_.size(); ++i) {
     // get the current angle of bending
-    ChLinkEngine *mylink = mEngines[i];
+    ChLinkEngine *mylink = motors_[i];
     ChBody *b1 = mylink->GetMarker1()->GetBody();
     ChBody *b2 = mylink->GetMarker2()->GetBody();
     double angle = fabs(mylink->Get_mot_rot());
@@ -71,13 +71,13 @@ void RobotController::ActiveLifting() {
 }
 
 void RobotController::TorqueControl() {
-  double kk = mSnakeParams->k;
-  double AA = mSnakeParams->A;
-  double ww = mSnakeParams->w;
+  double kk = robot_params_->k;
+  double AA = robot_params_->A;
+  double ww = robot_params_->w;
 
-  for (int i = 0; i < mEngines.size(); ++i) {
-    ChLinkEngine *mylink = mEngines[i];
-    double torquelimit = 1.1;
+  for (int i = 0; i < motors_.size(); ++i) {
+    ChLinkEngine *mylink = motors_[i];
+    // double torquelimit = 1.1;
     mylink->Set_eng_mode(ChLinkEngine::ENG_MODE_TORQUE);
     ChSharedPtr<ChFunction_Sine> rotfunc(
         new ChFunction_Sine(double(i * 2) / kk * CH_C_2PI, ww, AA));
@@ -104,7 +104,7 @@ void RobotController::TorqueControl() {
     */
     ChSharedPtr<ChFunction_PID> torqfunct(
         new ChFunction_PID(10, 0, 0.4, mylink));
-    torqfunct->mDt = 1e-3;
+    torqfunct->dt = 1e-3;
     torqfunct->SetMax(1.1);
     torqfunct->SetMin(-1.1);
     mylink->Set_tor_funct(torqfunct);

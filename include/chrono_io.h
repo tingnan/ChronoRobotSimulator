@@ -5,21 +5,23 @@
 
 namespace chrono {
 class ChSystem;
-}
+} // namespace chrono
+
 class RFTBody;
 
 class ChronoIOManager {
-  chrono::ChSystem *mChSys;
-  std::vector<RFTBody> *mRFTBodyList;
-
 public:
   ChronoIOManager(chrono::ChSystem *pSys, std::vector<RFTBody> *pbdlist)
-      : mChSys(pSys), mRFTBodyList(pbdlist) {}
+      : ch_system_(pSys), body_list_(pbdlist) {}
 
   void DumpNodInfo();
   void DumpJntInfo();
   void DumpContact();
   void DumpRFTInfo();
+
+private:
+  chrono::ChSystem *ch_system_;
+  std::vector<RFTBody> *body_list_;
 };
 
 #endif // INCLUDE_CHRONOIO_H_

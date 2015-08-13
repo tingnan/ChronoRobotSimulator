@@ -47,17 +47,17 @@ public:
   void AddHeadDrag(RFTBody &body);
 
 private:
-  chrono::ChVector<> ydir_;
-  chrono::ChVector<> xdir_;
-  chrono::ChVector<> zdir_;
-  irr::ChIrrApp *mApp;
-  double ffac_;
   void InteractPiece(const chrono::ChVector<> &pos,
                      const chrono::ChVector<> &vel,
                      const chrono::ChVector<> &ori,
                      const chrono::ChVector<> &nor,
                      const chrono::ChVector<> &fow, double area, double pdist,
                      chrono::ChVector<> &force);
+  chrono::ChVector<> ydir_;
+  chrono::ChVector<> xdir_;
+  chrono::ChVector<> zdir_;
+  irr::ChIrrApp *mApp;
+  double ffac_;
 };
 
 #endif // INCLUDE_RFT_H_

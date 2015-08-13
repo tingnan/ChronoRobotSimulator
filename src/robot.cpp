@@ -11,7 +11,7 @@ using namespace chrono;
 using irr::ChIrrApp;
 
 ChronoRobotBuilder::ChronoRobotBuilder(ChIrrApp *pApp)
-    : mApp(pApp), mSnakeParams(NULL), mRFT(NULL) {}
+    : app_(pApp), robot_params_(NULL), rft_system_(NULL) {}
 
 double SegA(double s, double A) {
   // relative frame rotation between each seg;
@@ -20,24 +20,24 @@ double SegA(double s, double A) {
 
 void ChronoRobotBuilder::BuildRobot() {
 
-  ChSystem *mChSys = mApp->GetSystem();
+  ChSystem *ch_system = app_->GetSystem();
   if (true) {
     // the relation between curvature and the
     // thm * 2pi = AA * kk / delta_k
-    if (!mSnakeParams) {
+    if (!robot_params_) {
       std::cout << "no control params specified!\n" << std::endl;
       return;
     }
 
-    double AA = mSnakeParams->A;
-    double kk = mSnakeParams->k;
-    double ww = mSnakeParams->w;
-    double hh = mSnakeParams->h;
+    double AA = robot_params_->A;
+    double kk = robot_params_->k;
+    double ww = robot_params_->w;
+    double hh = robot_params_->h;
 
     std::cout << kk << "\t" << AA << "\t" << ww << std::endl;
     const int kNseg = 25 + 24;
-    mController = new RobotController();
-    mController->SetControlSet(mSnakeParams);
+    controller_ = new RobotController();
+    controller_->SetControlSet(robot_params_);
 
     const double friction = 0.1;
     std::vector<ChSharedBodyPtr> body_container_;
@@ -51,7 +51,7 @@ void ChronoRobotBuilder::BuildRobot() {
     ground->SetIdentifier(-1);
     ground->GetMaterialSurface()->SetFriction(friction);
 
-    mChSys->AddBody(ground);
+    ch_system->AddBody(ground);
 
     const double sf = 5;
     const double lx = 0.04 * sf;
@@ -72,8 +72,8 @@ void ChronoRobotBuilder::BuildRobot() {
         body_container_.push_back(chShape);
         chShape->SetIdentifier(k);
         chShape->GetMaterialSurface()->SetFriction(friction);
-        mChSys->AddBody(chShape);
-        mRFTBodylist.push_back(RFTBody(chShape.get_ptr()));
+        ch_system->AddBody(chShape);
+        body_list_.push_back(RFTBody(chShape.get_ptr()));
 
         chShape->SetPos(lastframe * ChVector<>(0.5 * lx, 0, 0));
         chShape->SetRot(lastframe.GetRot());
@@ -87,8 +87,8 @@ void ChronoRobotBuilder::BuildRobot() {
           ChQuaternion<> engineOri(Q_from_AngX(CH_C_PI_2));
           mylink->Initialize(body_container_[k], body_container_[k - 2],
                              ChCoordsys<>(enginePos, engineOri));
-          mChSys->AddLink(mylink);
-          mController->AddEngine(mylink.get());
+          ch_system->AddLink(mylink);
+          controller_->AddEngine(mylink.get());
         }
 
         ChSharedPtr<ChLinkLockPlanePlane> inplanelink(new ChLinkLockPlanePlane);
@@ -96,7 +96,7 @@ void ChronoRobotBuilder::BuildRobot() {
         inplanelink->Initialize(
             ground, body_container_[k],
             ChCoordsys<>(ChVector<>(), Q_from_AngX(CH_C_PI_2)));
-        mChSys->AddLink(inplanelink);
+        ch_system->AddLink(inplanelink);
 
         lastframe = ChFrame<>(ChVector<>(lx, 0, 0),
                               Q_from_AngY(0 * SegA(double(k) / kNseg, AA))) >>
@@ -111,7 +111,7 @@ void ChronoRobotBuilder::BuildRobot() {
         body_container_.push_back(chShape);
         chShape->SetIdentifier(k);
         chShape->GetMaterialSurface()->SetFriction(friction);
-        mChSys->AddBody(chShape);
+        ch_system->AddBody(chShape);
         ChVector<> enginePos(lastframe * ChVector<>(0, 0, 0));
         chShape->SetPos(enginePos);
         chShape->SetRot(Q_from_AngY(CH_C_PI_2));
@@ -120,7 +120,7 @@ void ChronoRobotBuilder::BuildRobot() {
         mylink->SetIdentifier(k + 100);
         mylink->Initialize(body_container_[k], body_container_[k - 1],
                            ChCoordsys<>(enginePos));
-        mChSys->AddLink(mylink);
+        ch_system->AddLink(mylink);
       }
     }
 
@@ -131,8 +131,8 @@ void ChronoRobotBuilder::BuildRobot() {
       body_container_.push_back(chShape);
       chShape->SetIdentifier(kNseg);
       chShape->GetMaterialSurface()->SetFriction(friction);
-      mChSys->AddBody(chShape);
-      // mRFTBodylist.push_back(RFTBody(chShape.get_ptr()));
+      ch_system->AddBody(chShape);
+      // body_list_.push_back(RFTBody(chShape.get_ptr()));
       ChVector<> enginePos(lastframe * ChVector<>(0, 0, 0));
       chShape->SetPos(enginePos);
       chShape->SetRot(Q_from_AngY(CH_C_PI_2));
@@ -141,19 +141,19 @@ void ChronoRobotBuilder::BuildRobot() {
       mylink->SetIdentifier(kNseg + 100);
       mylink->Initialize(body_container_[kNseg], body_container_[kNseg - 1],
                          ChCoordsys<>(enginePos));
-      mChSys->AddLink(mylink);
+      ch_system->AddLink(mylink);
     }
   }
-  mController->PositionControl();
+  controller_->PositionControl();
 }
 
 ChVector<> ChronoRobotBuilder::GetRobotCoMPosition() {
   ChVector<> pos;
-  const size_t nnode = mRFTBodylist.size();
+  const size_t nnode = body_list_.size();
   double total_mass = 0;
   for (int i = 0; i < nnode; ++i) {
-    ChVector<> tmppos = mRFTBodylist[i].GetChBody()->GetPos();
-    double tmpmass = mRFTBodylist[i].GetChBody()->GetMass();
+    ChVector<> tmppos = body_list_[i].GetChBody()->GetPos();
+    double tmpmass = body_list_[i].GetChBody()->GetMass();
     pos += tmppos * tmpmass;
     total_mass += tmpmass;
   }
@@ -161,7 +161,7 @@ ChVector<> ChronoRobotBuilder::GetRobotCoMPosition() {
 }
 
 void ChronoRobotBuilder::BuildBoard(double spacing) {
-  ChSystem *mChSys = mApp->GetSystem();
+  ChSystem *ch_system = app_->GetSystem();
   const int kNpeg = 30;
   double pegSeparation = spacing;
 
@@ -175,8 +175,8 @@ void ChronoRobotBuilder::BuildBoard(double spacing) {
       chShape->GetMaterialSurface()->SetFriction(0.0);
       chShape->SetPos(ChVector<>(xPos, 0, zPos));
       chShape->SetBodyFixed(true);
-      mChSys->AddBody(chShape);
-      mCollisionObjs.push_back(chShape.get_ptr());
+      ch_system->AddBody(chShape);
+      ch_body_list_.push_back(chShape.get_ptr());
     }
   }
 
@@ -189,13 +189,13 @@ void ChronoRobotBuilder::BuildBoard(double spacing) {
       chShape->GetMaterialSurface()->SetFriction(0.0);
       chShape->SetBodyFixed(true);
       chShape->SetPos(ChVector<>(50, 0, i * 1.2));
-      mChSys->AddBody(chShape);
+      ch_system->AddBody(chShape);
     }
   }
 }
 
 void ChronoRobotBuilder::SetCollide(bool mcol) {
-  for (int i = 0; i < mCollisionObjs.size(); ++i) {
-    mCollisionObjs[i]->SetCollide(mcol);
+  for (int i = 0; i < ch_body_list_.size(); ++i) {
+    ch_body_list_[i]->SetCollide(mcol);
   }
 }

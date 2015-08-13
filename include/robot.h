@@ -6,8 +6,7 @@
 #include <core/ChMath.h>
 
 class RFTBody;
-class SnakeControlSet {
-public:
+struct SnakeControlSet {
   // shape params
   double k;
   double A;
@@ -25,29 +24,30 @@ class ChBody;
 }
 
 class ChronoRobotBuilder {
-  // needs to be provided at initialization
-  class irr::ChIrrApp *mApp;
-  // needed at the building robot
-  SnakeControlSet *mSnakeParams;
-  // maybe needed
-  std::vector<RFTBody> mRFTBodylist;
-  std::vector<chrono::ChBody *> mCollisionObjs;
-  class RFTSystem *mRFT;
-  class RobotController *mController;
-
 public:
   ChronoRobotBuilder(class irr::ChIrrApp *);
   void BuildRobot();
   void ResetRobot();
   void SetControlSet(SnakeControlSet *snakeParams) {
-    mSnakeParams = snakeParams;
+    robot_params_ = snakeParams;
   }
-  void SetRFTSystems(class RFTSystem *rft) { mRFT = rft; }
-  class RobotController *GetController() { return mController; }
-  std::vector<RFTBody> &getRFTBodyList() { return mRFTBodylist; }
+  void SetRFTSystems(class RFTSystem *rft) { rft_system_ = rft; }
+  class RobotController *GetController() { return controller_; }
+  std::vector<RFTBody> &getRFTBodyList() { return body_list_; }
   chrono::ChVector<> GetRobotCoMPosition();
   void BuildBoard(double);
   void SetCollide(bool);
+
+private:
+  // needs to be provided at initialization
+  class irr::ChIrrApp *app_;
+  // needed at the building robot
+  SnakeControlSet *robot_params_;
+  // maybe needed
+  std::vector<RFTBody> body_list_;
+  std::vector<chrono::ChBody *> ch_body_list_;
+  class RFTSystem *rft_system_;
+  class RobotController *controller_;
 };
 
 #endif // INCLUDE_ROBOT_H_

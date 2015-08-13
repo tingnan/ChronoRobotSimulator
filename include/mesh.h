@@ -6,7 +6,7 @@
 
 namespace chrono {
 class ChBody;
-}
+} // namespace chrono
 
 void SetRFTMesh(chrono::ChBody *pbody, std::vector<chrono::ChVector<> > &,
                 std::vector<chrono::ChVector<> > &, std::vector<double> &);

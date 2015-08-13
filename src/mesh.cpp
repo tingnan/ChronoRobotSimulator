@@ -9,10 +9,10 @@ using chrono::ChVector;
 void MeshBox(const btBoxShape *cshape, double envelope,
              std::vector<ChVector<> > &plist, std::vector<ChVector<> > &olist,
              std::vector<double> &alist) {
-  btVector3 halfExtents = cshape->getHalfExtentsWithMargin();
-  double lx = 2 * (halfExtents.getX() - envelope);
-  double ly = 2 * (halfExtents.getY() - envelope);
-  double lz = 2 * (halfExtents.getZ() - envelope);
+  btVector3 half_sizes_ = cshape->getHalfExtentsWithMargin();
+  double lx = 2 * (half_sizes_.getX() - envelope);
+  double ly = 2 * (half_sizes_.getY() - envelope);
+  double lz = 2 * (half_sizes_.getZ() - envelope);
   const int npiece = plist.size();
   for (int i = 0; i < npiece; ++i) {
     double denom = npiece / 2;
