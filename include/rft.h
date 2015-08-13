@@ -7,6 +7,7 @@
 #include "include/mesh.h"
 
 namespace chrono {
+class ChSystem;
 class ChBody;
 }
 
@@ -41,7 +42,7 @@ struct RFTBody {
 
 class RFTSystem {
 public:
-  RFTSystem(irr::ChIrrApp *app);
+  RFTSystem(irr::ChIrrApp *ch_app);
   ~RFTSystem();
   void InteractExt(RFTBody &body);
   void AddHeadDrag(RFTBody &body);
@@ -56,7 +57,7 @@ private:
   chrono::ChVector<> ydir_;
   chrono::ChVector<> xdir_;
   chrono::ChVector<> zdir_;
-  irr::ChIrrApp *mApp;
+  irr::ChIrrApp *ch_app_;
   double ffac_;
 };
 

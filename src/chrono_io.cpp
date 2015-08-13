@@ -10,52 +10,46 @@
 
 #include "include/vector_utility.h"
 #include "include/chrono_io.h"
-#include "include/rft.h"
 
 using namespace chrono;
 
 // dump pos vel acc, rot, ome, and rot_acc for the body
-std::ofstream nodinfofile("snake.mov");
-void ChronoIOManager::DumpNodInfo() {
-  nodinfofile << std::setprecision(8);
-  nodinfofile << std::scientific;
+void IOManager::DumpNodInfo() {
+  mov_file_ << std::setprecision(8);
+  mov_file_ << std::scientific;
   const size_t nnodes = ch_system_->Get_bodylist()->size();
   for (unsigned int i = 0; i < nnodes; ++i) {
     ChBody *curbody = (*ch_system_->Get_bodylist())[i];
     if (curbody->GetIdentifier() == -1)
       continue;
-    nodinfofile << curbody->GetIdentifier() << " ";
-    nodinfofile << curbody->GetPos() << " " << curbody->GetPos_dt() << " ";
+    mov_file_ << curbody->GetIdentifier() << " ";
+    mov_file_ << curbody->GetPos() << " " << curbody->GetPos_dt() << " ";
     ChQuaternion<> rotquat = curbody->GetRot();
     // needs to conjugate to satisfy the matlab convention
     rotquat.Conjugate();
-    nodinfofile << rotquat << " ";
+    mov_file_ << rotquat << " ";
     // now output the angular velocity
-    nodinfofile << curbody->GetWvel_par() << "\n";
+    mov_file_ << curbody->GetWvel_par() << "\n";
   }
-  nodinfofile.flush();
+  mov_file_.flush();
 }
 
 // dump pos vel acc, rot, ome, and rot_acc for the link
-std::ofstream jntinfofile("snake.jnt");
-void ChronoIOManager::DumpJntInfo() {
-  jntinfofile << std::setprecision(8);
-  jntinfofile << std::scientific;
+void IOManager::DumpJntInfo() {
+  jnt_file_ << std::setprecision(8);
+  jnt_file_ << std::scientific;
   std::vector<ChLink *>::iterator itr;
   for (itr = ch_system_->Get_linklist()->begin();
        itr != ch_system_->Get_linklist()->end(); ++itr) {
     ChVector<> localforce = (*itr)->Get_react_force();
     double localtorque = ((chrono::ChLinkEngine *)*itr)->Get_mot_torque();
-    jntinfofile << (*itr)->GetIdentifier() << " ";
-    jntinfofile << localforce << " " << localtorque << "\n";
-    // jntinfofile << (*itr)->GetLinkRelativeCoords().rot.Rotate(localforce) <<
-    // " " << (*itr)->GetLinkRelativeCoords().rot.Rotate(localtorque) << "\n";
+    jnt_file_ << (*itr)->GetIdentifier() << " ";
+    jnt_file_ << localforce << " " << localtorque << "\n";
   }
-  jntinfofile.flush();
+  jnt_file_.flush();
 }
 
-std::ofstream cotinfofile("snake.cot");
-void ChronoIOManager::DumpContact() {
+void IOManager::DumpContact() {
   /*
   // collect all the contact forces on each body
   std::map<ChBody *, ChVector<> > forcemap;
@@ -94,11 +88,11 @@ void ChronoIOManager::DumpContact() {
   */
 }
 
-std::ofstream rftinfofile("snake.rft");
-void ChronoIOManager::DumpRFTInfo() {
-  const size_t nnodes = body_list_->size();
+void DumpRFTInfo(std::vector<RFTBody> &rft_body_list, std::ofstream &rft_file) {
+  const size_t nnodes = rft_body_list.size();
   for (int i = 0; i < nnodes; ++i) {
-    rftinfofile << (*body_list_)[i].GetChBody()->GetIdentifier() << " ";
-    rftinfofile << (*body_list_)[i].flist_ << "\n";
+    rft_file << rft_body_list[i].GetChBody()->GetIdentifier() << " ";
+    rft_file << rft_body_list[i].flist_ << "\n";
   }
+  rft_file.flush();
 }

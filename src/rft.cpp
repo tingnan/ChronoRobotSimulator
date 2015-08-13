@@ -1,14 +1,16 @@
 #include <algorithm>
 
-#include <physics/ChBody.h>
 #include <unit_IRRLICHT/ChIrrApp.h>
+#include <physics/ChBody.h>
 
 #include "include/rft.h"
 
-using namespace chrono;
+using chrono::ChSystem;
+using chrono::ChVector;
+using chrono::ChBody;
 
-RFTSystem::RFTSystem(irr::ChIrrApp *app)
-    : ydir_(0., 1., 0.), xdir_(1., 0., 0.), ffac_(1.), mApp(app) {
+RFTSystem::RFTSystem(irr::ChIrrApp *ch_app)
+    : ydir_(0., 1., 0.), xdir_(1., 0., 0.), ch_app_(ch_app), ffac_(1.) {
   zdir_.Cross(xdir_, ydir_);
 }
 
@@ -98,8 +100,8 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
     }
     // std::cout << force << std::endl;
     // debugfile << chbody.GetMass() << std::endl;
-    DrawVector(mApp, chbody.GetPos(), force, 1, 0);
-    DrawVector(mApp, chbody.GetPos(), chbody.GetPos_dt(), 2, 1);
+    DrawVector(ch_app_, chbody.GetPos(), force, 1, 0);
+    DrawVector(ch_app_, chbody.GetPos(), chbody.GetPos_dt(), 2, 1);
     chbody.Accumulate_force(force, chbody.GetPos(), false);
     chbody.Accumulate_torque(moment, false);
   }

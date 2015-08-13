@@ -27,11 +27,11 @@ public:
   };
 };
 
-void ApplyRFTForce(std::vector<RFTBody> &bodylist, RFTSystem &rsystem) {
-  const size_t nnodes = bodylist.size();
+void ApplyRFTForce(std::vector<RFTBody> &body_list, RFTSystem &rsystem) {
+  const size_t nnodes = body_list.size();
   for (unsigned int i = 0; i < nnodes; ++i) {
-    bodylist[i].GetChBody()->Empty_forces_accumulators();
-    rsystem.InteractExt(bodylist[i]);
+    body_list[i].GetChBody()->Empty_forces_accumulators();
+    rsystem.InteractExt(body_list[i]);
   }
 }
 
@@ -87,27 +87,28 @@ int main(int argc, char *argv[]) {
   //// Create a RFT ground, set the scaling factor to be 1;
   RFTSystem rsystem(&application);
 
-  // now let us build the robot;
-  ChronoRobotBuilder theSnake(&application);
-  theSnake.SetRFTSystems(&rsystem);
+  // now let us build the robot_builder;
+  ChronoRobotBuilder robot_builder(&application);
+  robot_builder.SetRFTSystems(&rsystem);
   ParamParser(argc, argv, &simParams.snakeParams);
   receiver.UpdateText();
 
-  theSnake.SetControlSet(&(simParams.snakeParams));
-  theSnake.BuildRobot();
-  theSnake.BuildBoard(sp);
-  theSnake.SetCollide(false);
+  robot_builder.SetControlSet(&(simParams.snakeParams));
+  robot_builder.BuildRobot();
+  robot_builder.BuildBoard(sp);
+  robot_builder.SetCollide(false);
   application.AssetBindAll();
   application.AssetUpdateAll();
 
-  // get all the RFT bodylist to interact
-  std::vector<RFTBody> &bodylist = theSnake.getRFTBodyList();
+  // get all the RFT body_list to interact
+  std::vector<RFTBody> &body_list = robot_builder.getRFTBodyList();
 
   // set io
-  ChronoIOManager ioManage(&my_system, &theSnake.getRFTBodyList());
+  IOManager io_manager(&my_system, "snake");
+  std::ofstream rft_file("snake.rft");
 
   // get the controller
-  RobotController *control = theSnake.GetController();
+  RobotController *control = robot_builder.GetController();
 
   // begin simulation
   application.SetStepManage(true);
@@ -119,12 +120,12 @@ int main(int argc, char *argv[]) {
   while (application.GetDevice()->run() && my_system.GetChTime() < 30) {
     // the core simulation part
     if (my_system.GetChTime() >= 1.0) {
-      ApplyRFTForce(bodylist, rsystem);
+      ApplyRFTForce(body_list, rsystem);
     }
 
     application.DoStep();
 
-    // ChVector<> cam_pos = theSnake.GetRobotCoMPosition();
+    // ChVector<> cam_pos = robot_builder.GetRobotCoMPosition();
     // scene::ICameraSceneNode* cur_cam =
     // application.GetSceneManager()->getActiveCamera();
     // cur_cam->setPosition(core::vector3df(cam_pos.x, cam_pos.y + 5.2,
@@ -140,7 +141,7 @@ int main(int argc, char *argv[]) {
           true, true, video::SColor(255, 140, 161, 192));
       application.DrawAll();
       if (my_system.GetChTime() >= 1.0) {
-        ApplyRFTForce(bodylist, rsystem);
+        ApplyRFTForce(body_list, rsystem);
       }
 
       // draw a grid to help visualizattion
@@ -152,14 +153,15 @@ int main(int argc, char *argv[]) {
 
       std::cout << std::fixed << std::setprecision(4) << my_system.GetChTime()
                 << std::endl;
-      ioManage.DumpNodInfo();
-      ioManage.DumpJntInfo();
-      ioManage.DumpContact();
+      io_manager.DumpNodInfo();
+      io_manager.DumpJntInfo();
+      io_manager.DumpContact();
+      DumpRFTInfo(body_list, rft_file);
       count = 0;
     }
 
     if (my_system.GetChTime() > 1.5 && switchparams) {
-      // theSnake.SetCollide(true);
+      // robot_builder.SetCollide(true);
       switchparams = false;
     }
 

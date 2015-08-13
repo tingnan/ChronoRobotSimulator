@@ -25,7 +25,7 @@ class ChBody;
 
 class ChronoRobotBuilder {
 public:
-  ChronoRobotBuilder(class irr::ChIrrApp *);
+  ChronoRobotBuilder(class irr::ChIrrApp *app);
   void BuildRobot();
   void ResetRobot();
   void SetControlSet(SnakeControlSet *snakeParams) {
