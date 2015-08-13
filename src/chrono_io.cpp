@@ -5,10 +5,12 @@
 #include <string>
 #include <map>
 #include <vector>
-#include "include/VectorUtility.h"
-#include "include/ChronoIO.h"
-#include "include/RFT.h"
-#include "physics/ChSystem.h"
+
+#include <physics/ChSystem.h>
+
+#include "include/vector_utility.h"
+#include "include/chrono_io.h"
+#include "include/rft.h"
 
 using namespace chrono;
 

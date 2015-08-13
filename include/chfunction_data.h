@@ -1,18 +1,14 @@
-#pragma once
-#include "motion_functions/ChFunction_Base.h"
+#ifndef INCLUDE_CHFUNCTION_DATA_H_
+#define INCLUDE_CHFUNCTION_DATA_H_
+
 #include <cmath>
 #include <vector>
 #include <algorithm>
+
+#include <motion_functions/ChFunction_Base.h>
+
 namespace chrono {
 class ChFunction_Data : public ChFunction {
-protected:
-  // the time interval for the
-  // must be a sorted, monotonically increasing array or the results will blow
-  // up
-  std::vector<double> mTime;
-  // the actual data at the corrsponding time;
-  std::vector<double> mData;
-
 public:
   ChFunction_Data() {}
   ChFunction_Data(const std::vector<double> &t, const std::vector<double> &v)
@@ -44,5 +40,15 @@ public:
     return y1 * w1 + y2 * w2;
   }
   double Get_y_dx(double t) { return 0; }
+
+protected:
+  // the time interval for the
+  // must be a sorted, monotonically increasing array or the results will blow
+  // up
+  std::vector<double> mTime;
+  // the actual data at the corrsponding time;
+  std::vector<double> mData;
 };
-}
+} // namespace chrono
+
+#endif // INCLUDE_CHFUNCTION_DATA_H_

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INCLUDE_MESHER_H_
+#define INCLUDE_MESHER_H_
 #include <vector>
 
 #include <core/ChVector.h>
@@ -9,3 +10,4 @@ class ChBody;
 
 void SetRFTMesh(chrono::ChBody *pbody, std::vector<chrono::ChVector<> > &,
                 std::vector<chrono::ChVector<> > &, std::vector<double> &);
+#endif // INCLUDE_MESHER_H_

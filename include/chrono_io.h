@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INCLUDE_CHRONOIO_H_
+#define INCLUDE_CHRONOIO_H_
 
 #include <vector>
 
@@ -20,3 +21,5 @@ public:
   void DumpContact();
   void DumpRFTInfo();
 };
+
+#endif // INCLUDE_CHRONOIO_H_

@@ -1,7 +1,10 @@
-#pragma once
+#ifndef INCLUDE_VECTOR_UTILITY_H_
+#define INCLUDE_VECTOR_UTILITY_H_
 
-#include "core/ChMath.h"
+#include <fstream>
 #include <iostream>
+
+#include <core/ChMath.h>
 
 template <class T>
 std::ostream &operator<<(std::ostream &stream,
@@ -36,3 +39,5 @@ inline double dot(const chrono::ChVector<> &v1, const chrono::ChVector<> &v2) {
 }
 
 inline double length(const chrono::ChVector<> &v1) { return sqrt(v1.Dot(v1)); }
+
+#endif // INCLUDE_VECTOR_UTILITY_H_

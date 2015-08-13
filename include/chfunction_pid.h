@@ -1,8 +1,11 @@
-#pragma once
-#include "motion_functions/ChFunction_Base.h"
+#ifndef INCLUDE_CHFUNCTION_PID_H_
+#define INCLUDE_CHFUNCTION_PID_H_
+
 #include <cmath>
-#include "physics/ChLinkEngine.h"
 #include <algorithm>
+
+#include <motion_functions/ChFunction_Base.h>
+#include <physics/ChLinkEngine.h>
 
 namespace chrono {
 class ChFunction_PID : public ChFunction {
@@ -79,4 +82,6 @@ public:
   void SetMax(double max) { Max = max; }
   void SetMin(double min) { Min = min; }
 };
-}
+} // namespace chrono
+
+#endif // INCLUDE_CHFUNCTION_PID_H_

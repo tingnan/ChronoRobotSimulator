@@ -1,10 +1,10 @@
-#include "unit_IRRLICHT/ChIrrApp.h"
+#include <unit_IRRLICHT/ChIrrApp.h>
 
-#include "include/RFT.h"
-#include "include/GuiControl.h"
-#include "include/Robot.h"
-#include "include/ChronoIO.h"
-#include "include/Controller.h"
+#include "include/rft.h"
+#include "include/gui.h"
+#include "include/robot.h"
+#include "include/chrono_io.h"
+#include "include/controller.h"
 
 using namespace chrono;
 using namespace irr;

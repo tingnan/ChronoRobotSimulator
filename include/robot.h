@@ -1,7 +1,10 @@
-#ifndef ROBOT_H
-#define ROBOT_H
+#ifndef INCLUDE_ROBOT_H_
+#define INCLUDE_ROBOT_H_
+
 #include <vector>
-#include "core/ChMath.h"
+
+#include <core/ChMath.h>
+
 class RFTBody;
 class SnakeControlSet {
 public:
@@ -47,4 +50,4 @@ public:
   void SetCollide(bool);
 };
 
-#endif
+#endif // INCLUDE_ROBOT_H_

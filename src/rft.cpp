@@ -1,9 +1,9 @@
 #include <algorithm>
 
-#include "physics/ChBody.h"
-#include "unit_IRRLICHT/ChIrrApp.h"
+#include <physics/ChBody.h>
+#include <unit_IRRLICHT/ChIrrApp.h>
 
-#include "include/RFT.h"
+#include "include/rft.h"
 
 using namespace chrono;
 
@@ -26,7 +26,7 @@ bool RFTTestCollision(ChBody &body, ChVector<> &pdirec, double pdist) {
 
 std::ofstream debugfile("debug.txt");
 // transform the rft segments (generated from the mesher) from its body frame to
-// local frame
+// global frame
 void RFTSegsTransform(RFTBody &rbody, std::vector<ChVector<> > &pos_list,
                       std::vector<ChVector<> > &vel_list,
                       std::vector<ChVector<> > &ori_list,

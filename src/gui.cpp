@@ -1,7 +1,7 @@
-#include "unit_IRRLICHT/ChIrrApp.h"
+#include <unit_IRRLICHT/ChIrrApp.h>
 
-#include "include/GuiControl.h"
-#include "include/Robot.h"
+#include "include/gui.h"
+#include "include/robot.h"
 
 using namespace irr;
 using namespace core;

@@ -2,13 +2,13 @@
 #include <string>
 #include <sstream>
 
-#include "physics/ChLinkEngine.h"
+#include <physics/ChLinkEngine.h>
 
-#include "include/ChFunction_SquareWave.h"
-#include "include/ChFunction_PID.h"
-#include "include/ChFunction_Data.h"
-#include "include/Controller.h"
-#include "include/Robot.h"
+#include "include/chfunction_squarewave.h"
+#include "include/chfunction_pid.h"
+#include "include/chfunction_data.h"
+#include "include/controller.h"
+#include "include/robot.h"
 
 using namespace chrono;
 

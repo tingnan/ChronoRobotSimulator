@@ -1,7 +1,9 @@
-#pragma once
+#ifndef INCLUDE_CHFUNCTION_SQUAREWAVE_H_
+#define INCLUDE_CHFUNCTION_SQUAREWAVE_H_
+
 #include <cmath>
 
-#include "motion_functions/ChFunction_Base.h"
+#include <motion_functions/ChFunction_Base.h>
 
 inline double matlabmod(double x, double y) {
   int n = floor(x / y);
@@ -47,3 +49,4 @@ public:
   double Get_y_dx(double x) { return 0; }
 };
 }
+#endif // INCLUDE_CHFUNCTION_SQUAREWAVE_H_

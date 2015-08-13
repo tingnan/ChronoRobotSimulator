@@ -1,10 +1,12 @@
-#pragma once
+#ifndef INCLUDE_CONTROLLER_H_
+#define INCLUDE_CONTROLLER_H_
+
+#include <vector>
 
 namespace chrono {
 class ChLinkEngine;
-}
+} // namespace chrono
 
-#include <vector>
 class RobotController {
 protected:
   class SnakeControlSet *mSnakeParams;
@@ -19,3 +21,5 @@ public:
   void ActiveLifting();
   void TorqueControl();
 };
+
+#endif // INCLUDE_CONTROLLER_H_

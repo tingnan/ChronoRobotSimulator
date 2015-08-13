@@ -1,7 +1,9 @@
-#ifndef GUICONTROL_H
-#define GUICONTROL_H
+#ifndef INCLUDE_GUI_H_
+#define INCLUDE_GUI_H_
+
 #include <irrlicht.h>
-#include "include/Robot.h"
+
+#include "include/robot.h"
 
 struct GlobalControlSet {
   double gTimeStep;
@@ -30,5 +32,6 @@ public:
   // update text when global params are changed
   void UpdateText();
 };
-}
-#endif
+} // namespace irr
+
+#endif // INCLUDE_GUI_H_
