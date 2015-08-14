@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 project("biped")
-
+add_definitions(-std=c++11 -g)
 set(CHRONO_DIR /usr/local/chrono)
 set(IRRLICHT_INCLUDE_DIRS /usr/include/irrlicht)
 include_directories(.)

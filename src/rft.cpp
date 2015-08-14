@@ -9,24 +9,21 @@ using chrono::ChSystem;
 using chrono::ChVector;
 using chrono::ChBody;
 
-RFTSystem::RFTSystem(irr::ChIrrApp *ch_app)
-    : ydir_(0., 1., 0.), xdir_(1., 0., 0.), ch_app_(ch_app), ffac_(1.) {
-  zdir_.Cross(xdir_, ydir_);
-}
+namespace {
 
-RFTSystem::~RFTSystem() {}
-
-bool RFTTestCollision(ChBody &body, ChVector<> &pdirec, double pdist) {
+bool RFTTestCollision(ChBody *body, const ChVector<> &pdirec, double pdist) {
   // first let us get the AABB box out of it.
-  body.GetCollisionModel()->SyncPosition();
+  chrono::collision::ChCollisionModel *collision_model =
+      body->GetCollisionModel();
+  collision_model->SyncPosition();
+
   ChVector<> bbmin, bbmax;
-  body.GetCollisionModel()->GetAABB(bbmin, bbmax);
+  collision_model->GetAABB(bbmin, bbmax);
   if (dot(bbmin, pdirec) < pdist)
     return true;
   return false;
 }
 
-std::ofstream debugfile("debug.txt");
 // transform the rft segments (generated from the mesher) from its body frame to
 // global frame
 void RFTSegsTransform(RFTBody &rbody, std::vector<ChVector<> > &pos_list,
@@ -46,7 +43,6 @@ void RFTSegsTransform(RFTBody &rbody, std::vector<ChVector<> > &pos_list,
       for_list[i] = chbody->TransformPointLocalToParent(ChVector<>(1, 0, 0)) -
                     chbody->GetPos();
     }
-    // debugfile << std::flush;
   }
 }
 
@@ -63,50 +59,6 @@ void DrawVector(irr::ChIrrApp *mApp, const ChVector<> &pos,
                      irr::core::vector3dfCH(pos + foc * scale), mcol);
 }
 
-void RFTSystem::InteractExt(RFTBody &rbody) {
-
-  const int nn = rbody.GetNumPieces();
-  std::vector<ChVector<> > pos_list(nn);
-  std::vector<ChVector<> > vel_list(nn);
-  std::vector<ChVector<> > ori_list(nn);
-  std::vector<ChVector<> > nor_list(nn);
-  std::vector<ChVector<> > for_list(nn);
-
-  double poffset = 0;
-  ChBody &chbody = *rbody.GetChBody();
-  // std::cout << chbody.GetIdentifier() << " " << chbody.GetCollide() <<
-  // std::endl;
-  if (RFTTestCollision(chbody, ydir_, poffset) && chbody.GetCollide()) {
-    RFTSegsTransform(rbody, pos_list, vel_list, ori_list, nor_list, for_list);
-    ChVector<> force;
-    ChVector<> moment;
-
-    for (int i = 0; i < nn; ++i) {
-      InteractPiece(pos_list[i], vel_list[i], ori_list[i], nor_list[i],
-                    for_list[i], rbody.alist_[i], poffset, rbody.flist_[i]);
-      force += rbody.flist_[i];
-
-      /*
-      if (i % 5 == 0)
-      {
-           DrawVector(mApp, pos_list[i], rbody.flist_[i], 0.1, 0);
-           DrawVector(mApp, pos_list[i], vel_list[i], 5, 1);
-      }
-      */
-
-      ChVector<> tmp;
-      tmp.Cross(pos_list[i] - chbody.GetPos(), rbody.flist_[i]);
-      moment += tmp;
-    }
-    // std::cout << force << std::endl;
-    // debugfile << chbody.GetMass() << std::endl;
-    DrawVector(ch_app_, chbody.GetPos(), force, 1, 0);
-    DrawVector(ch_app_, chbody.GetPos(), chbody.GetPos_dt(), 2, 1);
-    chbody.Accumulate_force(force, chbody.GetPos(), false);
-    chbody.Accumulate_torque(moment, false);
-  }
-}
-
 const double MD_RFT_VTHRESH = 1e-3;
 
 double hevistep(double x) {
@@ -114,22 +66,9 @@ double hevistep(double x) {
     return 1;
   if (x < 0)
     return -1;
-  if (x == 0)
-    return 0;
+  return 0;
 }
 
-void ForceHu(double deltah, double cospsi, double sinpsi, double area,
-             double *fnorm, double *fpara) {
-  // cospsi (n \cdot v), sinpsi (t \cdot v)
-  // force is proportional to velocity as well
-  double prefac = 9.81 * deltah * area * 40;
-  double mu_t = 0.30, mu_f = 0.11, mu_b = 0.14;
-  *fnorm = prefac * mu_t * cospsi;
-  *fpara = prefac * (mu_f * hevistep(sinpsi) + mu_b * (1 - hevistep(sinpsi))) *
-           sinpsi;
-}
-
-//
 void ForceSand(double deltah, double cospsi, double sinpsi, double area,
                double *fnorm, double *fpara) {
   // prefac = k * rho * g * z * A * reduction_factor
@@ -149,6 +88,69 @@ void ForceBB(double deltah, double cospsi, double sinpsi, double area,
   *fnorm =
       prefac * CS * gamma * cospsi / sqrt(1 + gamma * gamma * cospsi * cospsi);
   *fpara = 1 * prefac * (CF * sinpsi + CL * (1 - cospsi));
+}
+
+void ForceHu(double deltah, double cospsi, double sinpsi, double area,
+             double *fnorm, double *fpara) {
+  // cospsi (n \cdot v), sinpsi (t \cdot v)
+  // force is proportional to velocity as well
+  double prefac = 9.81 * deltah * area * 40;
+  double mu_t = 0.30, mu_f = 0.11, mu_b = 0.14;
+  *fnorm = prefac * mu_t * cospsi;
+  *fpara = prefac * (mu_f * hevistep(sinpsi) + mu_b * (1 - hevistep(sinpsi))) *
+           sinpsi;
+}
+}
+
+RFTSystem::RFTSystem(irr::ChIrrApp *ch_app)
+    : ydir_(0., 1., 0.), xdir_(1., 0., 0.), ch_app_(ch_app), ffac_(1.) {
+  zdir_.Cross(xdir_, ydir_);
+}
+
+RFTSystem::~RFTSystem() {}
+
+void RFTSystem::InteractExt(RFTBody &rbody) {
+
+  const int nn = rbody.GetNumPieces();
+  std::vector<ChVector<> > pos_list(nn);
+  std::vector<ChVector<> > vel_list(nn);
+  std::vector<ChVector<> > ori_list(nn);
+  std::vector<ChVector<> > nor_list(nn);
+  std::vector<ChVector<> > for_list(nn);
+
+  double poffset = 0;
+  ChBody *chbody = rbody.GetChBody();
+  // std::cout << chbody.GetIdentifier() << " " << chbody.GetCollide() <<
+  // std::endl;
+  if (RFTTestCollision(chbody, ydir_, poffset) && chbody->GetCollide()) {
+    RFTSegsTransform(rbody, pos_list, vel_list, ori_list, nor_list, for_list);
+    ChVector<> force;
+    ChVector<> moment;
+
+    for (int i = 0; i < nn; ++i) {
+      InteractPiece(pos_list[i], vel_list[i], ori_list[i], nor_list[i],
+                    for_list[i], rbody.alist_[i], poffset, rbody.flist_[i]);
+      force += rbody.flist_[i];
+
+      /*
+      if (i % 5 == 0)
+      {
+           DrawVector(mApp, pos_list[i], rbody.flist_[i], 0.1, 0);
+           DrawVector(mApp, pos_list[i], vel_list[i], 5, 1);
+      }
+      */
+
+      ChVector<> tmp;
+      tmp.Cross(pos_list[i] - chbody->GetPos(), rbody.flist_[i]);
+      moment += tmp;
+    }
+    // std::cout << force << std::endl;
+    // debugfile << chbody.GetMass() << std::endl;
+    DrawVector(ch_app_, chbody->GetPos(), force, 1, 0);
+    DrawVector(ch_app_, chbody->GetPos(), chbody->GetPos_dt(), 2, 1);
+    chbody->Accumulate_force(force, chbody->GetPos(), false);
+    chbody->Accumulate_torque(moment, false);
+  }
 }
 
 void RFTSystem::InteractPiece(const ChVector<> &pos, const ChVector<> &vel,

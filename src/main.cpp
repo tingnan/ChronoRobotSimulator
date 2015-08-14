@@ -57,8 +57,8 @@ int main(int argc, char *argv[]) {
   ChIrrWizard::add_typical_Lights(application.GetDevice());
   const double sp = atof(argv[3]);
   ChIrrWizard::add_typical_Camera(application.GetDevice(),
-                                  core::vector3df(5 * sp, 10 * sp, 0),
-                                  core::vector3df(5 * sp, 0, 0));
+                                  core::vector3df(5, 9, 0),
+                                  core::vector3df(5, 0, 0));
   scene::ICameraSceneNode *cur_cam =
       application.GetSceneManager()->getActiveCamera();
   cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
@@ -71,7 +71,9 @@ int main(int argc, char *argv[]) {
   // now let us build the robot_builder;
   ChronoRobotBuilder robot_builder(&application);
   robot_builder.BuildRobot();
-  robot_builder.SetCollide(false);
+  auto controller = robot_builder.GetController();
+  controller->EnablePositionControl();
+  // robot_builder.SetCollide(false);
 
   application.AssetBindAll();
   application.AssetUpdateAll();

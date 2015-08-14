@@ -4,20 +4,20 @@
 #include <vector>
 
 namespace chrono {
-class ChLinkEngine;
+class ChLinkLock;
 } // namespace chrono
 
 class RobotController {
 public:
   RobotController();
   ~RobotController() {}
-  void AddEngine(chrono::ChLinkEngine *p) { motors_.push_back(p); }
+  void AddEngine(chrono::ChLinkLock *p) { motors_.push_back(p); }
   void EnablePositionControl();
   void EnableActiveLifting();
   void EnableTorqueControl();
 
 private:
-  std::vector<chrono::ChLinkEngine *> motors_;
+  std::vector<chrono::ChLinkLock *> motors_;
 };
 
 #endif // INCLUDE_CONTROLLER_H_
