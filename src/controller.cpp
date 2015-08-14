@@ -39,7 +39,7 @@ void RobotController::EnablePositionControl() {
   for (int i = 0; i < motors_.size(); ++i) {
     if (ChLinkLinActuator *mylink =
             dynamic_cast<ChLinkLinActuator *>(motors_[i])) {
-      ChSharedPtr<ChFunction_Sine> funct(new ChFunction_Sine(0, 0.5, 1));
+      ChSharedPtr<ChFunction_Sine> funct(new ChFunction_Sine(0, 0.1, 1));
       mylink->Set_dist_funct(funct);
     }
   }

@@ -21,20 +21,31 @@ double SegA(double s, double A) {
 void ChronoRobotBuilder::BuildRobot() {
   ChSystem *ch_system = app_->GetSystem();
   {
-    ChSharedBodyPtr ground(new ChBodyEasyBox(100, 100, 1, 1, false, false));
+    ChSharedBodyPtr ground(new ChBodyEasyBox(100, 1, 100, 1, false, false));
     ground->SetBodyFixed(true);
     ch_system->Add(ground);
-    ChSharedBodyPtr foot(new ChBodyEasyBox(5, 5, 2, 1, true, true));
+    ChSharedBodyPtr foot(new ChBodyEasyBox(0.5, 0.2, 0.5, 1, true, true));
+    foot->SetPos(ChVector<>(0, 0, 0));
     ch_body_list_.push_back(foot.get());
-    rft_body_list_.emplace_back(foot.get());
-    rft_body_list_.back().Resize(100);
+    // rft_body_list_.emplace_back(foot.get());
+    // rft_body_list_.back().Resize(100);
     ch_system->Add(foot);
+
     // Now Add linear actuation
     ChSharedPtr<ChLinkLinActuator> linear_actuator(new ChLinkLinActuator());
+    ChVector<> origin(0, 0, 0);
+    ChQuaternion<> orientation = Q_from_AngZ(M_1_PI / 4.0);
+
+    /*
     linear_actuator->Initialize(foot, ground,
-                                ChCoordsys<>(ChVector<>(0, 0, 0)));
+                                ChCoordsys<>(origin, orientation));
     ch_system->Add(linear_actuator);
     controller_.AddEngine(linear_actuator.get());
+    */
+
+    ChSharedPtr<ChLinkLockPrismatic> prismatic(new ChLinkLockPrismatic());
+    prismatic->Initialize(ground, foot, ChCoordsys<>(origin, orientation));
+    ch_system->Add(prismatic);
   }
 }
 

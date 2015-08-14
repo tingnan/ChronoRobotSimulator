@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
   my_system.SetIterLCPmaxItersStab(30);
   my_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
   my_system.SetTol(1e-8);
-  my_system.Set_G_acc(ChVector<>(0, -9.8 * 0, 0));
+  my_system.Set_G_acc(ChVector<>(0, -9.8, 0));
   ChBroadPhaseCallbackNew *mcallback = new ChBroadPhaseCallbackNew;
   my_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
 
@@ -86,15 +86,14 @@ int main(int argc, char *argv[]) {
   std::ofstream rft_file("snake.rft");
 
   // begin simulation
-  // application.SetStepManage(true);
-  application.SetTryRealtime(false);
 
-  int count = 1;
-  int savestep = 1e-2 / application.GetSystem()->GetStep();
-  std::cout << application.GetSystem()->GetStep() << std::endl;
+  int count = 0;
+  int savestep = 1e-2 / application.GetTimestep();
+
   while (application.GetDevice()->run()) {
     // the core simulation part
     if (my_system.GetChTime() >= 1.0) {
+      break;
       ApplyRFTForce(body_list, rsystem);
     }
 
@@ -108,11 +107,12 @@ int main(int argc, char *argv[]) {
     // cur_cam->setTarget(core::vector3df(cam_pos.x, cam_pos.y, cam_pos.z));
 
     // io control
-    if (count == savestep) {
+    if (count == savestep - 1) {
 
       application.GetVideoDriver()->beginScene(
           true, true, video::SColor(255, 140, 161, 192));
       application.DrawAll();
+
       if (my_system.GetChTime() >= 1.0) {
         ApplyRFTForce(body_list, rsystem);
       }
@@ -131,6 +131,7 @@ int main(int argc, char *argv[]) {
       io_manager.DumpContact();
       DumpRFTInfo(body_list, rft_file);
       count = 0;
+      continue;
     }
 
     if (!application.GetPaused())

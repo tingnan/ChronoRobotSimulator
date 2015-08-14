@@ -31,8 +31,8 @@ MyEventReceiver::MyEventReceiver(ChIrrApp *myapp) {
       L"1e-3", core::rect<s32>(380, 10, 430, 30), true, 0, 104);
   edbox_time_step_->setTextAlignment(EGUIA_CENTER, EGUIA_CENTER);
   double time_step = wcstod(edbox_time_step_->getText(), NULL);
-  myapp->GetSystem()->SetStep(time_step);
-
+  myapp->SetTimestep(time_step);
+  std::cout << time_step << std::endl;
   key_down_ = false;
 }
 
