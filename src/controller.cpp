@@ -12,6 +12,7 @@
 
 using namespace chrono;
 
+namespace {
 void ReadCSV(std::ifstream &inputfile, std::vector<double> &time,
              std::vector<double> &data) {
   std::string str;
@@ -30,10 +31,12 @@ void ReadCSV(std::ifstream &inputfile, std::vector<double> &time,
     ++i;
   }
 }
+} // namespace
 
-RobotController::RobotController() : robot_params_(NULL) {}
+RobotController::RobotController() {}
 
-void RobotController::PositionControl() {
+void RobotController::EnablePositionControl() {
+  /*
   double kk = robot_params_->k;
   double AA = robot_params_->A;
   double ww = robot_params_->w;
@@ -45,9 +48,11 @@ void RobotController::PositionControl() {
         new ChFunction_Sine(double(i * 2) / kk * CH_C_2PI, ww, AA));
     mylink->Set_rot_funct(rotfunc);
   }
+  */
 }
 
-void RobotController::ActiveLifting() {
+void RobotController::EnableActiveLifting() {
+  /*
   for (int i = 0; i < motors_.size(); ++i) {
     // get the current angle of bending
     ChLinkEngine *mylink = motors_[i];
@@ -68,9 +73,11 @@ void RobotController::ActiveLifting() {
     // std::cout << id1 << " " << id2 << " " << mylink->Get_mot_rot() <<
     // std::endl;
   }
+  */
 }
 
-void RobotController::TorqueControl() {
+void RobotController::EnableTorqueControl() {
+  /*
   double kk = robot_params_->k;
   double AA = robot_params_->A;
   double ww = robot_params_->w;
@@ -101,7 +108,6 @@ void RobotController::TorqueControl() {
     file.close();
     ChSharedPtr<ChFunction_Data> torqfunct(new ChFunction_Data(time, data));
     mylink->Set_tor_funct(torqfunct);
-    */
     ChSharedPtr<ChFunction_PID> torqfunct(
         new ChFunction_PID(10, 0, 0.4, mylink));
     torqfunct->dt = 1e-3;
@@ -122,5 +128,4 @@ void RobotController::TorqueControl() {
     period, value, offset));
     mylink->Set_tor_funct(torqfunc);
     */
-  }
 }

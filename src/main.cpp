@@ -35,29 +35,11 @@ void ApplyRFTForce(std::vector<RFTBody> &body_list, RFTSystem &rsystem) {
   }
 }
 
-void ParamParser(int argc, char *argv[], SnakeControlSet *params) {
-  // parse info from command line
-  int i = 0;
-  while (i < argc) {
-    switch (i) {
-    case 1:
-      params->k = atoi(argv[i]);
-      break;
-    case 2:
-      params->A = atof(argv[i]);
-      break;
-    default:
-      break;
-    }
-    ++i;
-  }
-}
-
 int main(int argc, char *argv[]) {
 
   // Create a ChronoENGINE physical system
   ChSystem my_system;
-  SetChronoDataPath("D:/Library/ChronoEngine/data/");
+  SetChronoDataPath("/usr/local/chrono/data/");
   my_system.SetIterLCPmaxItersSpeed(30);
   my_system.SetIterLCPmaxItersStab(30);
   my_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
@@ -68,7 +50,7 @@ int main(int argc, char *argv[]) {
 
   // create a gui application with the chrono system
   ChIrrApp application(&my_system, L"A simple RFT example",
-                       core::dimension2d<u32>(1024, 768), false, true,
+                       core::dimension2d<u32>(650, 650), false, true,
                        video::EDT_OPENGL);
   ChIrrWizard::add_typical_Logo(application.GetDevice());
   ChIrrWizard::add_typical_Sky(application.GetDevice());
@@ -80,8 +62,7 @@ int main(int argc, char *argv[]) {
   scene::ICameraSceneNode *cur_cam =
       application.GetSceneManager()->getActiveCamera();
   cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
-  GlobalControlSet simParams;
-  MyEventReceiver receiver(&application, &simParams);
+  MyEventReceiver receiver(&application);
   application.SetUserEventReceiver(&receiver);
 
   //// Create a RFT ground, set the scaling factor to be 1;
@@ -89,14 +70,9 @@ int main(int argc, char *argv[]) {
 
   // now let us build the robot_builder;
   ChronoRobotBuilder robot_builder(&application);
-  robot_builder.SetRFTSystems(&rsystem);
-  ParamParser(argc, argv, &simParams.snakeParams);
-  receiver.UpdateText();
-
-  robot_builder.SetControlSet(&(simParams.snakeParams));
   robot_builder.BuildRobot();
-  robot_builder.BuildBoard(sp);
   robot_builder.SetCollide(false);
+
   application.AssetBindAll();
   application.AssetUpdateAll();
 
@@ -107,17 +83,14 @@ int main(int argc, char *argv[]) {
   IOManager io_manager(&my_system, "snake");
   std::ofstream rft_file("snake.rft");
 
-  // get the controller
-  RobotController *control = robot_builder.GetController();
-
   // begin simulation
-  application.SetStepManage(true);
-  application.SetTimestep(simParams.gTimeStep);
+  // application.SetStepManage(true);
   application.SetTryRealtime(false);
 
   int count = 1;
-  bool switchparams = true;
-  while (application.GetDevice()->run() && my_system.GetChTime() < 30) {
+  int savestep = 1e-2 / application.GetSystem()->GetStep();
+  std::cout << application.GetSystem()->GetStep() << std::endl;
+  while (application.GetDevice()->run()) {
     // the core simulation part
     if (my_system.GetChTime() >= 1.0) {
       ApplyRFTForce(body_list, rsystem);
@@ -132,10 +105,8 @@ int main(int argc, char *argv[]) {
     // cam_pos.z));
     // cur_cam->setTarget(core::vector3df(cam_pos.x, cam_pos.y, cam_pos.z));
 
-    int savestep = 1e-2 / simParams.gTimeStep;
     // io control
     if (count == savestep) {
-      control->ActiveLifting();
 
       application.GetVideoDriver()->beginScene(
           true, true, video::SColor(255, 140, 161, 192));
@@ -158,11 +129,6 @@ int main(int argc, char *argv[]) {
       io_manager.DumpContact();
       DumpRFTInfo(body_list, rft_file);
       count = 0;
-    }
-
-    if (my_system.GetChTime() > 1.5 && switchparams) {
-      // robot_builder.SetCollide(true);
-      switchparams = false;
     }
 
     if (!application.GetPaused())

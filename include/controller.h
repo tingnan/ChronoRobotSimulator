@@ -12,13 +12,11 @@ public:
   RobotController();
   ~RobotController() {}
   void AddEngine(chrono::ChLinkEngine *p) { motors_.push_back(p); }
-  void SetControlSet(class SnakeControlSet *p) { robot_params_ = p; }
-  void PositionControl();
-  void ActiveLifting();
-  void TorqueControl();
+  void EnablePositionControl();
+  void EnableActiveLifting();
+  void EnableTorqueControl();
 
 private:
-  class SnakeControlSet *robot_params_;
   std::vector<chrono::ChLinkEngine *> motors_;
 };
 
