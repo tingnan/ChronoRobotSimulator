@@ -16,15 +16,14 @@ class ChIrrApp;
 }
 
 struct RFTBody {
-  RFTBody(chrono::ChBody *p) : chbody_(p) { Resize(30); }
-  void SetMesh() { SetRFTMesh(chbody_, plist_, olist_, alist_); }
+  RFTBody(chrono::ChBody *p) : chbody_(p) { Resize(100); }
   void Resize(int n) {
     npiece_ = n;
     flist_.resize(n);
     plist_.resize(n);
     olist_.resize(n);
     alist_.resize(n);
-    SetMesh();
+    SetRFTMesh(chbody_, plist_, olist_, alist_);
   }
   int GetNumPieces() { return npiece_; }
   chrono::ChBody *GetChBody() { return chbody_; }

@@ -42,9 +42,9 @@ int main(int argc, char *argv[]) {
   SetChronoDataPath("/usr/local/chrono/data/");
   my_system.SetIterLCPmaxItersSpeed(30);
   my_system.SetIterLCPmaxItersStab(30);
-  my_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
+  // my_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
   my_system.SetTol(1e-8);
-  my_system.Set_G_acc(ChVector<>(0, -9.8, 0));
+  my_system.Set_G_acc(ChVector<>(0, 0, 0));
   ChBroadPhaseCallbackNew *mcallback = new ChBroadPhaseCallbackNew;
   my_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
 
@@ -57,8 +57,8 @@ int main(int argc, char *argv[]) {
   ChIrrWizard::add_typical_Lights(application.GetDevice());
   const double sp = atof(argv[3]);
   ChIrrWizard::add_typical_Camera(application.GetDevice(),
-                                  core::vector3df(5, 9, 0),
-                                  core::vector3df(5, 0, 0));
+                                  core::vector3df(0, 0, 9),
+                                  core::vector3df(0, 0, 0));
   scene::ICameraSceneNode *cur_cam =
       application.GetSceneManager()->getActiveCamera();
   cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
 
   // now let us build the robot_builder;
   ChronoRobotBuilder robot_builder(&application);
-  robot_builder.BuildRobot();
+  robot_builder.BuildRobot(0.0, CH_C_PI_4, -CH_C_PI_4);
   auto controller = robot_builder.GetController();
   controller->EnablePositionControl();
   // robot_builder.SetCollide(false);
@@ -93,7 +93,6 @@ int main(int argc, char *argv[]) {
   while (application.GetDevice()->run()) {
     // the core simulation part
     if (my_system.GetChTime() >= 1.0) {
-      break;
       ApplyRFTForce(body_list, rsystem);
     }
 

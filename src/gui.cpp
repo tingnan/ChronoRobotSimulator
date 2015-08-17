@@ -28,7 +28,7 @@ MyEventReceiver::MyEventReceiver(ChIrrApp *myapp) {
                        false, 0,
                        103)->setTextAlignment(EGUIA_CENTER, EGUIA_CENTER);
   edbox_time_step_ = mygui->addEditBox(
-      L"1e-3", core::rect<s32>(380, 10, 430, 30), true, 0, 104);
+      L"1e-2", core::rect<s32>(380, 10, 430, 30), true, 0, 104);
   edbox_time_step_->setTextAlignment(EGUIA_CENTER, EGUIA_CENTER);
   double time_step = wcstod(edbox_time_step_->getText(), NULL);
   myapp->SetTimestep(time_step);

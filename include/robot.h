@@ -20,7 +20,7 @@ class ChBody;
 class ChronoRobotBuilder {
 public:
   ChronoRobotBuilder(class irr::ChIrrApp *app);
-  void BuildRobot();
+  void BuildRobot(double depth, double alpha, double beta);
   void ResetRobot();
   class RobotController *GetController() { return &controller_; }
   std::vector<RFTBody> &getRFTBodyList() { return rft_body_list_; }
