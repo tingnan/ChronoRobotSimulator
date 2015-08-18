@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <vector>
 
 #include <unit_IRRLICHT/ChIrrApp.h>
 #include <physics/ChBody.h>
@@ -10,6 +11,15 @@ using chrono::ChVector;
 using chrono::ChBody;
 
 namespace {
+
+const double kRFTVelocityThreshold = 1e-3;
+const double kLengthThreshold = 1e-3;
+
+// The vertical RFT data
+const double kBeta[] = {};
+const double kGamma[] = {};
+const double kPoppyLPForceX[] = {};
+const double kPoppyLPForceZ[] = {};
 
 bool RFTTestCollision(ChBody *body, const ChVector<> &pdirec, double pdist) {
   // first let us get the AABB box out of it.
@@ -37,15 +47,7 @@ void DrawVector(irr::ChIrrApp *mApp, const ChVector<> &pos,
                      irr::core::vector3dfCH(pos + foc * scale), mcol);
 }
 
-const double MD_RFT_VTHRESH = 1e-3;
-
-double hevistep(double x) {
-  if (x > 0)
-    return 1;
-  if (x < 0)
-    return -1;
-  return 0;
-}
+inline double hevistep(double x) { return x > 0 ? 1 : (x < 0 ? -1 : 0); }
 
 void ForceSand(double deltah, double cospsi, double sinpsi, double area,
                double *fnorm, double *fpara) {
@@ -77,6 +79,55 @@ void ForceHu(double deltah, double cospsi, double sinpsi, double area,
   *fnorm = prefac * mu_t * cospsi;
   *fpara = prefac * (mu_f * hevistep(sinpsi) + mu_b * (1 - hevistep(sinpsi))) *
            sinpsi;
+}
+
+ChVector<> ComputeRFTPlaneX(const ChVector<> &v_direction,
+                            const ChVector<> &x_direction,
+                            const ChVector<> &y_direction) {
+  ChVector<> rft_plane_normal;
+  rft_plane_normal.Cross(y_direction, v_direction);
+  double normal_length = length(rft_plane_normal);
+  if (normal_length < kLengthThreshold) {
+    return x_direction; // default
+  }
+  rft_plane_normal /= normal_length;
+  ChVector<> rft_plane_x;
+  rft_plane_x.Cross(y_direction, rft_plane_normal);
+  return rft_plane_x;
+}
+
+double GetVelAngle(const ChVector<> &v_direction, const ChVector<> &x_direction,
+                   const ChVector<> &y_direction) {
+
+  double cos_gamma = dot(-v_direction, y_direction);
+  if (cos_gamma > 0) {
+    return acos(cos_gamma);
+  } else {
+    return acos(cos_gamma) - chrono::CH_C_PI;
+  }
+}
+
+double GetOriAngle(const ChVector<> &ori, const ChVector<> &x_direction,
+                   const ChVector<> &y_direction) {
+  double beta;
+  double cos_beta = dot(ori, y_direction);
+  double sin_beta = dot(ori, x_direction);
+  if (cos_beta < 0) {
+    sin_beta = -sin_beta;
+  }
+  beta = asin(sin_beta);
+  return beta;
+}
+
+std::pair<size_t, size_t> FindLbUb(double x, const std::vector<double> &xbin) {
+  assert(x >= *xbin.begin() && x <= xbin.back());
+  auto itr = std::lower_bound(xbin.begin() + 1, xbin.end() - 1, x);
+  size_t index = itr - xbin.begin();
+  if (*itr == x) {
+    return std::make_pair(index, index);
+  }
+  assert(index != 0);
+  return std::make_pair(index - 1, index);
 }
 }
 
@@ -116,7 +167,6 @@ RFTSystem::RFTSystem(irr::ChIrrApp *ch_app)
 RFTSystem::~RFTSystem() {}
 
 void RFTSystem::InteractExt(RFTBody &rbody) {
-
   auto position_list = rbody.GetTransformedPositionList();
   auto velocity_list = rbody.GetTransformedVelocityList();
   auto normal_list = rbody.GetTransformedNormalList();
@@ -132,21 +182,10 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
       InteractPiece(position_list[i], velocity_list[i], normal_list[i],
                     is_double_sided[i], area_list[i], rbody.forces[i]);
       force += rbody.forces[i];
-
-      /*
-      if (i % 5 == 0)
-      {
-           DrawVector(mApp, pos_list[i], rbody.flist_[i], 0.1, 0);
-           DrawVector(mApp, pos_list[i], vel_list[i], 5, 1);
-      }
-      */
-
       ChVector<> tmp;
       tmp.Cross(position_list[i] - chbody->GetPos(), rbody.forces[i]);
       moment += tmp;
     }
-    // std::cout << force << std::endl;
-    // debugfile << chbody.GetMass() << std::endl;
     DrawVector(ch_app_, chbody->GetPos(), force, 1, 0);
     DrawVector(ch_app_, chbody->GetPos(), chbody->GetPos_dt(), 2, 1);
     chbody->Accumulate_force(force, chbody->GetPos(), false);
@@ -159,15 +198,19 @@ void RFTSystem::InteractPiece(const ChVector<> &pos, const ChVector<> &vel,
                               double area, ChVector<> &force) {
   double height = dot(ydir_, pos);
   if (height < 0) {
-    if (dot(nor, vel) < 0) {
+    if (dot(nor, vel) < 0 && !is_double_sided) {
       force = ChVector<>(0.0, 0.0, 0.0);
       return;
     }
 
     double abs_vel = sqrt(dot(vel, vel));
-    if (abs_vel < MD_RFT_VTHRESH) {
+    if (abs_vel < kRFTVelocityThreshold) {
       return;
     }
+    ChVector<> v_direction = vel / abs_vel;
+    ChVector<> rft_plane_x = ComputeRFTPlaneX(v_direction, xdir_, ydir_);
+    double beta = GetOriAngle(nor, rft_plane_x, ydir_);
+    double gamma = GetVelAngle(v_direction, rft_plane_x, ydir_);
   } else {
     force = ChVector<>(0.0, 0.0, 0.0);
   }
