@@ -24,28 +24,6 @@ bool RFTTestCollision(ChBody *body, const ChVector<> &pdirec, double pdist) {
   return false;
 }
 
-// transform the rft segments (generated from the mesher) from its body frame to
-// global frame
-void RFTSegsTransform(RFTBody &rbody, std::vector<ChVector<> > &pos_list,
-                      std::vector<ChVector<> > &vel_list,
-                      std::vector<ChVector<> > &ori_list,
-                      std::vector<ChVector<> > &nor_list,
-                      std::vector<ChVector<> > &for_list) {
-  ChBody *chbody = rbody.GetChBody();
-  if (true) {
-    const int npiece = rbody.GetNumPieces();
-    for (int i = 0; i < npiece; ++i) {
-      pos_list[i] = chbody->TransformPointLocalToParent(rbody.plist_[i]);
-      vel_list[i] = chbody->PointSpeedLocalToParent(rbody.plist_[i]);
-      ori_list[i] = chbody->TransformPointLocalToParent(rbody.olist_[i]) -
-                    chbody->GetPos();
-      nor_list[i] = ori_list[i];
-      for_list[i] = chbody->TransformPointLocalToParent(ChVector<>(1, 0, 0)) -
-                    chbody->GetPos();
-    }
-  }
-}
-
 void DrawVector(irr::ChIrrApp *mApp, const ChVector<> &pos,
                 const ChVector<> &foc, double scale, int color) {
   irr::video::IVideoDriver *driver = mApp->GetVideoDriver();
@@ -102,6 +80,34 @@ void ForceHu(double deltah, double cospsi, double sinpsi, double area,
 }
 }
 
+std::vector<chrono::ChVector<> > RFTBody::GetTransformedNormalList() {
+  std::vector<chrono::ChVector<> > output;
+  output.reserve(normals_.size());
+  for (const auto &normal : normals_) {
+    output.emplace_back(chbody_->TransformPointLocalToParent(normal) -
+                        chbody_->GetPos());
+  }
+  return output;
+}
+
+std::vector<chrono::ChVector<> > RFTBody::GetTransformedPositionList() {
+  std::vector<chrono::ChVector<> > output;
+  output.reserve(positions_.size());
+  for (const auto &pos : positions_) {
+    output.emplace_back(chbody_->TransformPointLocalToParent(pos));
+  }
+  return output;
+}
+
+std::vector<chrono::ChVector<> > RFTBody::GetTransformedVelocityList() {
+  std::vector<chrono::ChVector<> > output;
+  output.reserve(positions_.size());
+  for (const auto &pos : positions_) {
+    output.emplace_back(chbody_->PointSpeedLocalToParent(pos));
+  }
+  return output;
+}
+
 RFTSystem::RFTSystem(irr::ChIrrApp *ch_app)
     : ydir_(0., 1., 0.), xdir_(1., 0., 0.), ch_app_(ch_app), ffac_(1.) {
   zdir_.Cross(xdir_, ydir_);
@@ -111,26 +117,21 @@ RFTSystem::~RFTSystem() {}
 
 void RFTSystem::InteractExt(RFTBody &rbody) {
 
-  const int nn = rbody.GetNumPieces();
-  std::vector<ChVector<> > pos_list(nn);
-  std::vector<ChVector<> > vel_list(nn);
-  std::vector<ChVector<> > ori_list(nn);
-  std::vector<ChVector<> > nor_list(nn);
-  std::vector<ChVector<> > for_list(nn);
+  auto position_list = rbody.GetTransformedPositionList();
+  auto velocity_list = rbody.GetTransformedVelocityList();
+  auto normal_list = rbody.GetTransformedNormalList();
+  const auto &area_list = rbody.GetAreaList();
+  const auto &is_double_sided = rbody.GetDoubleSided();
 
-  double poffset = 0;
   ChBody *chbody = rbody.GetChBody();
-  // std::cout << chbody.GetIdentifier() << " " << chbody.GetCollide() <<
-  // std::endl;
-  if (RFTTestCollision(chbody, ydir_, poffset) && chbody->GetCollide()) {
-    RFTSegsTransform(rbody, pos_list, vel_list, ori_list, nor_list, for_list);
+  if (RFTTestCollision(chbody, ydir_, 0) && chbody->GetCollide()) {
     ChVector<> force;
     ChVector<> moment;
-
+    const size_t nn = rbody.GetNumPieces();
     for (int i = 0; i < nn; ++i) {
-      InteractPiece(pos_list[i], vel_list[i], ori_list[i], nor_list[i],
-                    for_list[i], rbody.alist_[i], poffset, rbody.flist_[i]);
-      force += rbody.flist_[i];
+      InteractPiece(position_list[i], velocity_list[i], normal_list[i],
+                    is_double_sided[i], area_list[i], rbody.forces[i]);
+      force += rbody.forces[i];
 
       /*
       if (i % 5 == 0)
@@ -141,7 +142,7 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
       */
 
       ChVector<> tmp;
-      tmp.Cross(pos_list[i] - chbody->GetPos(), rbody.flist_[i]);
+      tmp.Cross(position_list[i] - chbody->GetPos(), rbody.forces[i]);
       moment += tmp;
     }
     // std::cout << force << std::endl;
@@ -154,11 +155,10 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
 }
 
 void RFTSystem::InteractPiece(const ChVector<> &pos, const ChVector<> &vel,
-                              const ChVector<> &ori, const ChVector<> &nor,
-                              const ChVector<> &fow, double area, double pdist,
-                              ChVector<> &force) {
+                              const ChVector<> &nor, bool is_double_sided,
+                              double area, ChVector<> &force) {
   double height = dot(ydir_, pos);
-  if (height < pdist) {
+  if (height < 0) {
     if (dot(nor, vel) < 0) {
       force = ChVector<>(0.0, 0.0, 0.0);
       return;
@@ -168,27 +168,6 @@ void RFTSystem::InteractPiece(const ChVector<> &pos, const ChVector<> &vel,
     if (abs_vel < MD_RFT_VTHRESH) {
       return;
     }
-
-    double cospsi = dot(vel, ori) / abs_vel;
-
-    double sinpsi = sqrt(1 - cospsi * cospsi);
-    double fnorm, fpara;
-    /*
-    ForceSand(pdist - height, cospsi, sinpsi, area, &fnorm, &fpara);
-
-    ChVector<> par = fow;
-    // par.x = -ori.z;
-    // par.z =  ori.x;
-    if (dot(par, vel) < 0)
-        par = -par;
-    */
-    if (dot(fow, vel) < 0)
-      sinpsi = -sinpsi;
-    ForceHu(pdist - height, cospsi, sinpsi, area, &fnorm, &fpara);
-    ChVector<> par = fow;
-    // the parallel direction
-
-    force = -fnorm * ori - fpara * par;
   } else {
     force = ChVector<>(0.0, 0.0, 0.0);
   }

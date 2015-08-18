@@ -49,50 +49,12 @@ void IOManager::DumpJntInfo() {
   jnt_file_.flush();
 }
 
-void IOManager::DumpContact() {
-  /*
-  // collect all the contact forces on each body
-  std::map<ChBody *, ChVector<> > forcemap;
-  std::map<ChBody *, ChVector<> > torquemap;
-  ChContactContainerBase *syscot =
-      (ChContactContainerBase *)(ch_system_->GetContactContainer());
-  std::list<ChContact *> contactlist = syscot->GetContactList();
-  std::list<ChContact *>::const_iterator itr = contactlist.begin();
-  for (; itr != contactlist.end(); ++itr) {
-    collision::ChModelBulletBody *modelA =
-        (collision::ChModelBulletBody *)((*itr)->GetModelA());
-    collision::ChModelBulletBody *modelB =
-        (collision::ChModelBulletBody *)((*itr)->GetModelB());
-    ChBody *bodyA = modelA->GetBody();
-    ChBody *bodyB = modelB->GetBody();
-    ChVector<> curforce =
-        (*itr)->GetContactCoords().TransformDirectionLocalToParent(
-            (*itr)->GetContactForce());
-    forcemap[bodyA] += curforce;
-    forcemap[bodyB] -= curforce;
-    ChVector<> pointA = (*itr)->GetContactP1();
-    ChVector<> pointB = (*itr)->GetContactP2();
-    // torque in global frame;
-    torquemap[bodyA] += (pointA - bodyA->GetPos()) % curforce;
-    torquemap[bodyB] -= (pointB - bodyB->GetPos()) % curforce;
-  }
-
-  // now let us save the contact force
-  cotinfofile << std::setprecision(8);
-  cotinfofile << std::scientific;
-  std::map<ChBody *, ChVector<> >::const_iterator citr = forcemap.begin();
-  for (; citr != forcemap.end(); ++citr) {
-    cotinfofile << citr->first->GetIdentifier() << " ";
-    cotinfofile << citr->second << "\n";
-  }
-  */
-}
+void IOManager::DumpContact() {}
 
 void DumpRFTInfo(std::vector<RFTBody> &rft_body_list, std::ofstream &rft_file) {
   const size_t nnodes = rft_body_list.size();
   for (int i = 0; i < nnodes; ++i) {
     rft_file << rft_body_list[i].GetChBody()->GetIdentifier() << " ";
-    rft_file << rft_body_list[i].flist_ << "\n";
   }
   rft_file.flush();
 }

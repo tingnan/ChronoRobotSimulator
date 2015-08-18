@@ -3,6 +3,7 @@
 #include <assets/ChTriangleMeshShape.h>
 #include <assets/ChBoxShape.h>
 
+#include "include/vector_utility.h"
 #include "include/mesh.h"
 
 using chrono::ChVector;
@@ -13,6 +14,10 @@ void MeshBox(chrono::geometry::ChBox &shape, std::vector<ChVector<> > &plist,
   double lx = 2 * half_sizes(0);
   double ly = 2 * half_sizes(1);
   double lz = 2 * half_sizes(2);
+  const size_t num_pieces = 30;
+  plist.resize(num_pieces);
+  olist.resize(num_pieces);
+  alist.resize(num_pieces);
   const int npiece = plist.size();
   for (int i = 0; i < npiece; ++i) {
     double denom = npiece / 2;
@@ -45,12 +50,18 @@ void MeshTriangleMesh(chrono::geometry::ChTriangleMeshConnected &shape,
   const auto &face_normals = shape.getCoordsNormals();
   const auto &face_vertex_indices = shape.getIndicesVertexes();
   const auto &face_vertices = shape.getCoordsVertices();
-  std::cout << face_normals.size() << std::endl;
+  for (auto index : face_vertex_indices) {
+    chrono::ChVector<> p0 = face_vertices[index(0)];
+    chrono::ChVector<> p1 = face_vertices[index(1)];
+    chrono::ChVector<> p2 = face_vertices[index(2)];
+    // Compute the normal of each triangle
+  }
   exit(0);
 }
 
-void SetRFTMesh(chrono::ChBody *body, std::vector<ChVector<> > &plist,
-                std::vector<ChVector<> > &olist, std::vector<double> &alist) {
+void GenerateRFTMesh(chrono::ChBody *body, std::vector<ChVector<> > &plist,
+                     std::vector<ChVector<> > &olist,
+                     std::vector<double> &alist) {
   auto &body_assets = body->GetAssets();
   for (auto &visual_asset : body_assets) {
     if (visual_asset.IsType<chrono::ChTriangleMeshShape>()) {
