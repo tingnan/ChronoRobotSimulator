@@ -4,7 +4,6 @@
 #include <vector>
 
 #include "include/vector_utility.h"
-#include "include/mesh.h"
 
 namespace chrono {
 class ChSystem;
@@ -15,32 +14,24 @@ namespace irr {
 class ChIrrApp;
 }
 
-class RFTBody {
+struct RFTBody {
 public:
-  RFTBody(chrono::ChBody *p) : chbody_(p) {
-    GenerateRFTMesh(chbody_, positions_, normals_, areas_);
-  }
-
+  RFTBody(chrono::ChBody *p) : chbody(p) {}
   std::vector<chrono::ChVector<> > GetTransformedNormalList();
   std::vector<chrono::ChVector<> > GetTransformedPositionList();
   std::vector<chrono::ChVector<> > GetTransformedVelocityList();
-  const std::vector<double> &GetAreaList() { return areas_; }
-  const std::vector<bool> &GetDoubleSided() { return is_double_sided_; }
-  int GetNumPieces() { return positions_.size(); }
-  chrono::ChBody *GetChBody() const { return chbody_; }
   // Force on each of the piece.
   std::vector<chrono::ChVector<> > forces;
-
-private:
   // The position of each piece in CoG frame.
-  std::vector<chrono::ChVector<> > positions_;
+  std::vector<chrono::ChVector<> > positions;
   // The orientation of each piece in CoG frame.
-  std::vector<chrono::ChVector<> > normals_;
+  std::vector<chrono::ChVector<> > normals;
   // The area of each of the piece.
-  std::vector<double> areas_;
+  std::vector<double> areas;
   // Whether a piece is double sided.
-  std::vector<bool> is_double_sided_;
-  chrono::ChBody *chbody_;
+  std::vector<bool> is_double_sided;
+  // The Chrono body holder
+  chrono::ChBody *chbody;
 };
 
 class RFTSystem {

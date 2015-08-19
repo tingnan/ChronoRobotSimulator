@@ -195,28 +195,28 @@ Value Interpolate2(const Scalar xbin[], size_t size_x, const Scalar ybin[],
 
 std::vector<chrono::ChVector<> > RFTBody::GetTransformedNormalList() {
   std::vector<chrono::ChVector<> > output;
-  output.reserve(normals_.size());
-  for (const auto &normal : normals_) {
-    output.emplace_back(chbody_->TransformPointLocalToParent(normal) -
-                        chbody_->GetPos());
+  output.reserve(normals.size());
+  for (const auto &normal : normals) {
+    output.emplace_back(chbody->TransformPointLocalToParent(normal) -
+                        chbody->GetPos());
   }
   return output;
 }
 
 std::vector<chrono::ChVector<> > RFTBody::GetTransformedPositionList() {
   std::vector<chrono::ChVector<> > output;
-  output.reserve(positions_.size());
-  for (const auto &pos : positions_) {
-    output.emplace_back(chbody_->TransformPointLocalToParent(pos));
+  output.reserve(positions.size());
+  for (const auto &pos : positions) {
+    output.emplace_back(chbody->TransformPointLocalToParent(pos));
   }
   return output;
 }
 
 std::vector<chrono::ChVector<> > RFTBody::GetTransformedVelocityList() {
   std::vector<chrono::ChVector<> > output;
-  output.reserve(positions_.size());
-  for (const auto &pos : positions_) {
-    output.emplace_back(chbody_->PointSpeedLocalToParent(pos));
+  output.reserve(positions.size());
+  for (const auto &pos : positions) {
+    output.emplace_back(chbody->PointSpeedLocalToParent(pos));
   }
   return output;
 }
@@ -247,14 +247,15 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
   auto position_list = rbody.GetTransformedPositionList();
   auto velocity_list = rbody.GetTransformedVelocityList();
   auto normal_list = rbody.GetTransformedNormalList();
-  const auto &area_list = rbody.GetAreaList();
-  const auto &is_double_sided = rbody.GetDoubleSided();
+  const auto &area_list = rbody.areas;
+  const auto &is_double_sided = rbody.is_double_sided;
 
-  ChBody *chbody = rbody.GetChBody();
+  ChBody *chbody = rbody.chbody;
+  DrawVector(ch_app_, chbody->GetPos(), chbody->GetPos_dt(), 2, 1);
   if (RFTTestCollision(chbody, ydir_, 0) && chbody->GetCollide()) {
     ChVector<> force;
     ChVector<> moment;
-    const size_t nn = rbody.GetNumPieces();
+    const size_t nn = rbody.positions.size();
     for (int i = 0; i < nn; ++i) {
       InteractPieceVert(position_list[i], velocity_list[i], normal_list[i],
                         is_double_sided[i], area_list[i], rbody.forces[i]);
@@ -264,7 +265,7 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
       moment += tmp;
     }
     DrawVector(ch_app_, chbody->GetPos(), force, 1, 0);
-    DrawVector(ch_app_, chbody->GetPos(), chbody->GetPos_dt(), 2, 1);
+    chbody->Empty_forces_accumulators();
     chbody->Accumulate_force(force, chbody->GetPos(), false);
     chbody->Accumulate_torque(moment, false);
   }

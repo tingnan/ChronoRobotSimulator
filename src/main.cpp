@@ -30,7 +30,6 @@ public:
 void ApplyRFTForce(std::vector<RFTBody> &body_list, RFTSystem &rsystem) {
   const size_t nnodes = body_list.size();
   for (unsigned int i = 0; i < nnodes; ++i) {
-    body_list[i].GetChBody()->Empty_forces_accumulators();
     rsystem.InteractExt(body_list[i]);
   }
 }

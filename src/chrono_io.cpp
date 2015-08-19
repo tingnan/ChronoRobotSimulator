@@ -54,7 +54,7 @@ void IOManager::DumpContact() {}
 void DumpRFTInfo(std::vector<RFTBody> &rft_body_list, std::ofstream &rft_file) {
   const size_t nnodes = rft_body_list.size();
   for (int i = 0; i < nnodes; ++i) {
-    rft_file << rft_body_list[i].GetChBody()->GetIdentifier() << " ";
+    rft_file << rft_body_list[i].chbody->GetIdentifier() << " ";
   }
   rft_file.flush();
 }
