@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <vector>
+#include <array>
+#include <iterator>
 
 #include <unit_IRRLICHT/ChIrrApp.h>
 #include <physics/ChBody.h>
@@ -16,10 +18,46 @@ const double kRFTVelocityThreshold = 1e-3;
 const double kLengthThreshold = 1e-3;
 
 // The vertical RFT data
-const double kBeta[] = {};
-const double kGamma[] = {};
-const double kPoppyLPForceX[] = {};
-const double kPoppyLPForceZ[] = {};
+const double kBeta[] = { -1.5708, -1.0472, -0.5236, 0, 0.5236, 1.0472, 1.5708 };
+const double kGamma[] = { -1.5708,  -1.249, -0.98279, -0.7854, -0.588,
+                          -0.32175, 0,      0.32175,  0.588,   0.7854,
+                          0.98279,  1.249,  1.5708 };
+const double kPoppyLPForceX[] = {
+  -0.0003576, 0.012707,   0.0050237,  8.9441e-05, -0.0061737, -0.0097044,
+  -0.0003576, 0.022822,   0.012165,   0.00014238, -0.0062137, -0.0089274,
+  -0.0084405, 0.022822,   0.028831,   0.01601,    0.00088098, -0.0055443,
+  -0.010608,  0.0068018,  0.028831,   0.037173,   0.026569,   0.0070237,
+  -0.0017047, -0.0051974, 0.046233,   0.037173,   0.047673,   0.025881,
+  0.013093,   0.0059781,  -0.0023086, 0.053087,   0.047673,   0.066176,
+  0.037016,   0.021665,   0.015063,   0.062678,   0.076347,   0.066176,
+  0.07128,    0.037865,   0.025765,   0.015925,   0.089906,   0.093417,
+  0.07128,    0.061707,   0.051759,   0.02385,    0.046187,   0.11504,
+  0.095443,   0.061707,   0.053525,   0.038183,   0.017194,   0.04684,
+  0.10661,    0.090605,   0.053525,   0.057539,   0.042789,   -0.0061161,
+  0.054761,   0.10407,    0.098334,   0.057539,   0.054993,   0.037992,
+  -0.034056,  0.044937,   0.099257,   0.091804,   0.054993,   0.053313,
+  -0.030905,  -0.06565,   0.026716,   0.089117,   0.082993,   0.053313,
+  0.002363,   -0.088024,  -0.086666,  0.0020933,  0.074291,   0.073971,
+  0.002363
+};
+const double kPoppyLPForceY[] = {
+  0.00015574, -0.012213,  -0.011769,  -0.0090943, -0.0093116, -0.0064866,
+  0.00015574, -0.0074099, -0.0091358, -0.011509,  -0.011506,  -0.0015747,
+  -0.0026182, -0.0074099, -0.0044121, -0.013356,  -0.012379,  -0.0058604,
+  -0.0069619, 0.0011234,  -0.0044121, -0.0060136, -0.012821,  -0.015457,
+  -0.011497,  -0.0086091, 0.0092621,  -0.0060136, -0.0060408, -0.011972,
+  -0.012703,  -0.015659,  -0.011228,  0.011137,   -0.0060408, 0.0040482,
+  -0.010925,  -0.0033929, -0.012496,  0.052096,   0.032807,   0.0040482,
+  0.0094569,  -0.0076901, -0.01045,   -0.0067856, 0.094894,   0.0487,
+  0.0094569,  0.010414,   0.010801,   -0.012191,  0.20682,    0.15609,
+  0.050329,   0.010414,   0.013026,   0.0045585,  0.041582,   0.20268,
+  0.16313,    0.060037,   0.013026,   0.026948,   0.020752,   0.13643,
+  0.25041,    0.18759,    0.087413,   0.026948,   0.039794,   0.047602,
+  0.20214,    0.28033,    0.21132,    0.091741,   0.039794,   0.051384,
+  0.11837,    0.25197,    0.31647,    0.24544,    0.10964,    0.051384,
+  0.088068,   0.15353,    0.29438,    0.35093,    0.24345,    0.11464,
+  0.088068
+};
 
 bool RFTTestCollision(ChBody *body, const ChVector<> &pdirec, double pdist) {
   // first let us get the AABB box out of it.
@@ -93,41 +131,65 @@ ChVector<> ComputeRFTPlaneX(const ChVector<> &v_direction,
   rft_plane_normal /= normal_length;
   ChVector<> rft_plane_x;
   rft_plane_x.Cross(y_direction, rft_plane_normal);
+  assert(dot(rft_plane_x, v_direction) <= 0);
   return rft_plane_x;
 }
 
-double GetVelAngle(const ChVector<> &v_direction, const ChVector<> &x_direction,
+double GetVelAngle(const ChVector<> &v_direction,
                    const ChVector<> &y_direction) {
 
-  double cos_gamma = dot(-v_direction, y_direction);
-  if (cos_gamma > 0) {
-    return acos(cos_gamma);
-  } else {
-    return acos(cos_gamma) - chrono::CH_C_PI;
-  }
+  double sin_gamma = dot(-v_direction, y_direction);
+  return asin(sin_gamma);
 }
 
-double GetOriAngle(const ChVector<> &ori, const ChVector<> &x_direction,
+double GetOriAngle(const ChVector<> &normal, const ChVector<> &x_direction,
                    const ChVector<> &y_direction) {
-  double beta;
-  double cos_beta = dot(ori, y_direction);
-  double sin_beta = dot(ori, x_direction);
-  if (cos_beta < 0) {
+  double normal_y = dot(normal, y_direction);
+  double sin_beta = dot(normal, x_direction);
+  // The normal is not pointing up (along ydirection)
+  if (normal_y < 0) {
     sin_beta = -sin_beta;
   }
-  beta = asin(sin_beta);
-  return beta;
+  return asin(sin_beta);
 }
 
-std::pair<size_t, size_t> FindLbUb(double x, const std::vector<double> &xbin) {
-  assert(x >= *xbin.begin() && x <= xbin.back());
-  auto itr = std::lower_bound(xbin.begin() + 1, xbin.end() - 1, x);
-  size_t index = itr - xbin.begin();
-  if (*itr == x) {
-    return std::make_pair(index, index);
+template <class Scalar, class Iterator>
+std::pair<Iterator, Iterator> FindLbUb(Scalar x, Iterator begin, Iterator end) {
+  assert(x >= *begin && x <= *(end - 1));
+  auto itr = std::lower_bound(begin, end, x);
+  if (itr == begin) {
+    return std::make_pair(itr, itr + 1);
   }
-  assert(index != 0);
-  return std::make_pair(index - 1, index);
+  return std::make_pair(itr - 1, itr);
+}
+
+size_t ColumMajorIndex2DTo1D(size_t i, size_t j, size_t n_rows) {
+  return j * n_rows + i;
+}
+
+template <class Scalar, class Value>
+Value Interpolate2(const Scalar xbin[], size_t size_x, const Scalar ybin[],
+                   size_t size_y, const Value v[], Scalar x, Scalar y) {
+  auto xbound = FindLbUb(x, xbin, xbin + size_x);
+  auto ybound = FindLbUb(y, ybin, ybin + size_y);
+
+  size_t ix0 = xbound.first - xbin;
+  size_t ix1 = xbound.second - xbin;
+  size_t iy0 = ybound.first - ybin;
+  size_t iy1 = ybound.second - ybin;
+
+  Value f00 = v[ColumMajorIndex2DTo1D(ix0, iy0, size_x)];
+  Value f10 = v[ColumMajorIndex2DTo1D(ix1, iy0, size_x)];
+  Value f01 = v[ColumMajorIndex2DTo1D(ix0, iy1, size_x)];
+  Value f11 = v[ColumMajorIndex2DTo1D(ix1, iy1, size_x)];
+  Value a00 = f00;
+  Value a10 = f10 - f00;
+  Value a01 = f01 - f00;
+  Value a11 = f11 + f00 - f01 - f10;
+
+  Scalar x_nor = (x - xbin[ix0]) / (xbin[ix1] - xbin[ix0]);
+  Scalar y_nor = (y - ybin[iy0]) / (ybin[iy1] - ybin[iy0]);
+  return a00 + a10 * x_nor + a01 * y_nor + a11 * x_nor * y_nor;
 }
 }
 
@@ -162,6 +224,21 @@ std::vector<chrono::ChVector<> > RFTBody::GetTransformedVelocityList() {
 RFTSystem::RFTSystem(irr::ChIrrApp *ch_app)
     : ydir_(0., 1., 0.), xdir_(1., 0., 0.), ch_app_(ch_app), ffac_(1.) {
   zdir_.Cross(xdir_, ydir_);
+
+  /*
+  ChVector<> force;
+  ChVector<> pos(0, -1, 0);
+  bool is_double_sided = true;
+  double area = 1;
+  for (double beta = -1.5; beta <= 1.5; beta += 0.05) {
+    for (double gamma = -1.5; gamma <= 1.5; gamma += 0.05) {
+      ChVector<> vel(2.0 * cos(gamma), 2.0 * sin(-gamma), 0);
+      ChVector<> surface_normal(sin(-beta), cos(beta), 0);
+      std::cout << beta << "," << gamma << " : ";
+      InteractPiece(pos, vel, surface_normal, is_double_sided, area, force);
+    }
+  }
+  */
 }
 
 RFTSystem::~RFTSystem() {}
@@ -179,8 +256,8 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
     ChVector<> moment;
     const size_t nn = rbody.GetNumPieces();
     for (int i = 0; i < nn; ++i) {
-      InteractPiece(position_list[i], velocity_list[i], normal_list[i],
-                    is_double_sided[i], area_list[i], rbody.forces[i]);
+      InteractPieceVert(position_list[i], velocity_list[i], normal_list[i],
+                        is_double_sided[i], area_list[i], rbody.forces[i]);
       force += rbody.forces[i];
       ChVector<> tmp;
       tmp.Cross(position_list[i] - chbody->GetPos(), rbody.forces[i]);
@@ -193,24 +270,54 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
   }
 }
 
-void RFTSystem::InteractPiece(const ChVector<> &pos, const ChVector<> &vel,
-                              const ChVector<> &nor, bool is_double_sided,
-                              double area, ChVector<> &force) {
-  double height = dot(ydir_, pos);
+void RFTSystem::InteractPieceVert(const ChVector<> &surface_position,
+                                  const ChVector<> &surface_velocity,
+                                  const ChVector<> &surface_normal,
+                                  bool is_double_sided, double area,
+                                  ChVector<> &force) {
+  ChVector<> rft_plane_y = ydir_;
+  ChVector<> rft_plane_x = xdir_;
+  double height = dot(rft_plane_y, surface_position);
   if (height < 0) {
-    if (dot(nor, vel) < 0 && !is_double_sided) {
+    if (dot(surface_normal, surface_velocity) < 0 && !is_double_sided) {
       force = ChVector<>(0.0, 0.0, 0.0);
       return;
     }
 
-    double abs_vel = sqrt(dot(vel, vel));
+    double abs_vel = surface_velocity.Length();
     if (abs_vel < kRFTVelocityThreshold) {
       return;
     }
-    ChVector<> v_direction = vel / abs_vel;
-    ChVector<> rft_plane_x = ComputeRFTPlaneX(v_direction, xdir_, ydir_);
-    double beta = GetOriAngle(nor, rft_plane_x, ydir_);
-    double gamma = GetVelAngle(v_direction, rft_plane_x, ydir_);
+    ChVector<> v_direction = surface_velocity / abs_vel;
+    // The RFT vertical plane is determined by velocity and y_direction
+    ChVector<> rft_plane_x =
+        ComputeRFTPlaneX(v_direction, rft_plane_x, rft_plane_y);
+
+    // If the surface normal is outside this plane, we do a projection
+    ChVector<> rft_plane_normal;
+    rft_plane_normal.Cross(rft_plane_x, rft_plane_y);
+    double cos_proj_angle = dot(surface_normal, rft_plane_normal);
+
+    ChVector<> projected_surface_normal =
+        surface_normal - cos_proj_angle * rft_plane_normal;
+    double abs_proj_normal = projected_surface_normal.Length();
+    if (abs_proj_normal < kLengthThreshold) {
+      force = ChVector<>(0.0, 0.0, 0.0);
+      return;
+    }
+    projected_surface_normal /= abs_proj_normal;
+    double projected_area = sqrt(1 - cos_proj_angle * cos_proj_angle) * area;
+
+    // Now compute the beta and gamma defined in the paper.
+    double beta =
+        GetOriAngle(projected_surface_normal, rft_plane_x, rft_plane_y);
+    double gamma = GetVelAngle(v_direction, rft_plane_y);
+    // std::cout << beta << "," << gamma << " : " << cos_proj_angle <<
+    // std::endl;
+    double fx = Interpolate2(kBeta, 7, kGamma, 13, kPoppyLPForceX, beta, gamma);
+    double fy = Interpolate2(kBeta, 7, kGamma, 13, kPoppyLPForceY, beta, gamma);
+    // The force normal to RFT plane is ignored for now.
+    force = (rft_plane_x * fx + rft_plane_y * fy) * height * projected_area;
   } else {
     force = ChVector<>(0.0, 0.0, 0.0);
   }
