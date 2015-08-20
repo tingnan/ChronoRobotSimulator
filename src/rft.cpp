@@ -249,9 +249,8 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
   auto normal_list = rbody.GetTransformedNormalList();
   const auto &area_list = rbody.areas;
   const auto &is_double_sided = rbody.is_double_sided;
-
   ChBody *chbody = rbody.chbody;
-  DrawVector(ch_app_, chbody->GetPos(), chbody->GetPos_dt(), 2, 1);
+  // DrawVector(ch_app_, chbody->GetPos(), chbody->GetPos_dt(), 2, 1);
   if (RFTTestCollision(chbody, ydir_, 0) && chbody->GetCollide()) {
     ChVector<> force;
     ChVector<> moment;
@@ -259,6 +258,7 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
     for (int i = 0; i < nn; ++i) {
       InteractPieceVert(position_list[i], velocity_list[i], normal_list[i],
                         is_double_sided[i], area_list[i], rbody.forces[i]);
+      // DrawVector(ch_app_, position_list[i], rbody.forces[i], 50, 0);
       force += rbody.forces[i];
       ChVector<> tmp;
       tmp.Cross(position_list[i] - chbody->GetPos(), rbody.forces[i]);
@@ -280,7 +280,7 @@ void RFTSystem::InteractPieceVert(const ChVector<> &surface_position,
   ChVector<> rft_plane_x = xdir_;
   double height = dot(rft_plane_y, surface_position);
   if (height < 0) {
-    if (dot(surface_normal, surface_velocity) < 0 && !is_double_sided) {
+    if (dot(surface_normal, surface_velocity) < -1e-3 && !is_double_sided) {
       force = ChVector<>(0.0, 0.0, 0.0);
       return;
     }
@@ -293,7 +293,6 @@ void RFTSystem::InteractPieceVert(const ChVector<> &surface_position,
     // The RFT vertical plane is determined by velocity and y_direction
     ChVector<> rft_plane_x =
         ComputeRFTPlaneX(v_direction, rft_plane_x, rft_plane_y);
-
     // If the surface normal is outside this plane, we do a projection
     ChVector<> rft_plane_normal;
     rft_plane_normal.Cross(rft_plane_x, rft_plane_y);
@@ -308,17 +307,20 @@ void RFTSystem::InteractPieceVert(const ChVector<> &surface_position,
     }
     projected_surface_normal /= abs_proj_normal;
     double projected_area = sqrt(1 - cos_proj_angle * cos_proj_angle) * area;
+    // std::cout << surface_position << " " << surface_velocity << " : "
+    //           << rft_plane_x << " " << rft_plane_y << " : ";
 
     // Now compute the beta and gamma defined in the paper.
     double beta =
         GetOriAngle(projected_surface_normal, rft_plane_x, rft_plane_y);
     double gamma = GetVelAngle(v_direction, rft_plane_y);
-    // std::cout << beta << "," << gamma << " : " << cos_proj_angle <<
-    // std::endl;
+    // std::cout << beta << " " << gamma << " : ";
     double fx = Interpolate2(kBeta, 7, kGamma, 13, kPoppyLPForceX, beta, gamma);
     double fy = Interpolate2(kBeta, 7, kGamma, 13, kPoppyLPForceY, beta, gamma);
     // The force normal to RFT plane is ignored for now.
-    force = (rft_plane_x * fx + rft_plane_y * fy) * height * projected_area;
+    force =
+        (rft_plane_x * fx + rft_plane_y * fy) * fabs(height) * projected_area;
+    // std::cout << force << std::endl;
   } else {
     force = ChVector<>(0.0, 0.0, 0.0);
   }

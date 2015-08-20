@@ -54,9 +54,8 @@ int main(int argc, char *argv[]) {
   ChIrrWizard::add_typical_Logo(application.GetDevice());
   ChIrrWizard::add_typical_Sky(application.GetDevice());
   ChIrrWizard::add_typical_Lights(application.GetDevice());
-  const double sp = atof(argv[3]);
   ChIrrWizard::add_typical_Camera(application.GetDevice(),
-                                  core::vector3df(0, 0, 9),
+                                  core::vector3df(0, 0, 15),
                                   core::vector3df(0, 0, 0));
   scene::ICameraSceneNode *cur_cam =
       application.GetSceneManager()->getActiveCamera();
@@ -69,11 +68,12 @@ int main(int argc, char *argv[]) {
 
   // now let us build the robot_builder;
   ChronoRobotBuilder robot_builder(&application);
-  robot_builder.BuildRobot(0.0, CH_C_PI_4, -CH_C_PI_4);
+  double beta = atof(argv[1]);
+  double gamma = atof(argv[2]);
+  robot_builder.BuildRobot(0.0, beta, gamma);
   auto controller = robot_builder.GetController();
   controller->EnablePositionControl();
   // robot_builder.SetCollide(false);
-
   application.AssetBindAll();
   application.AssetUpdateAll();
 
@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
   int count = 0;
   int savestep = 1e-2 / application.GetTimestep();
 
-  while (application.GetDevice()->run()) {
+  while (application.GetDevice()->run() && my_system.GetChTime() <= 10) {
     // the core simulation part
     if (my_system.GetChTime() >= 1.0) {
       ApplyRFTForce(body_list, rsystem);

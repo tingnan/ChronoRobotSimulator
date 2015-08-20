@@ -55,6 +55,11 @@ void DumpRFTInfo(std::vector<RFTBody> &rft_body_list, std::ofstream &rft_file) {
   const size_t nnodes = rft_body_list.size();
   for (int i = 0; i < nnodes; ++i) {
     rft_file << rft_body_list[i].chbody->GetIdentifier() << " ";
+    ChVector<> total_force;
+    for (size_t j = rft_body_list[i].forces.size(); j != 0; --j) {
+      total_force += rft_body_list[i].forces[j - 1];
+    }
+    rft_file << total_force << std::endl;
   }
   rft_file.flush();
 }

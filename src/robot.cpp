@@ -16,9 +16,13 @@ namespace {
 
 // A Wedge is defined as a triangle (x-y plane) extruded in z direction
 class Wedge {
+public:
   void SetPoint(size_t index, double x, double y);
-  ChVector<> GetPoint(size_t index);
-  ChVector<> BaryCenter();
+  void Recenter();
+  ChVector<> GetPoint(size_t index) const;
+  ChVector<> GetNormal() const;
+  ChVector<> GetBaryCenter() const;
+  double GetTriangleArea() const;
   double depth;
 
 private:
@@ -31,13 +35,37 @@ void Wedge::SetPoint(size_t index, double x, double y) {
   points_[index](1) = y;
 }
 
-ChVector<> Wedge::GetPoint(size_t index) {
+void Wedge::Recenter() {
+  ChVector<> center = GetBaryCenter();
+  for (size_t i = 0; i < 3; ++i) {
+    points_[i] -= center;
+  }
+}
+
+ChVector<> Wedge::GetPoint(size_t index) const {
   index = index % 3;
   return points_[index];
 }
 
-ChVector<> Wedge::BaryCenter() {
+ChVector<> Wedge::GetNormal() const {
+  auto vec1 = points_[1] - points_[0];
+  auto vec2 = points_[2] - points_[1];
+  ChVector<> normal;
+  normal.Cross(vec1, vec2);
+  if (normal(2) < 0) {
+    return ChVector<>(0, 0, -1);
+  }
+  return ChVector<>(0, 0, 1);
+}
+
+ChVector<> Wedge::GetBaryCenter() const {
   return (points_[0] + points_[1] + points_[2]) / 3;
+}
+
+double Wedge::GetTriangleArea() const {
+  ChVector<> area;
+  area.Cross(points_[1] - points_[0], points_[2] - points_[1]);
+  return abs(area(2));
 }
 
 void MeshBox(ChVector<> sizes, std::vector<ChVector<> > &plist,
@@ -71,18 +99,33 @@ void MeshBox(ChVector<> sizes, std::vector<ChVector<> > &plist,
   }
 }
 
-void MeshWedge(ChVector<> p0, ChVector<> p1, ChVector<> p2, double depth,
-               std::vector<ChVector<> > &plist, std::vector<ChVector<> > &nlist,
-               std::vector<double> &alist,
-               std::vector<bool> &is_doubled_sided) {
+void MeshWedge(const Wedge &wedge, RFTBody &rbody) {
   const size_t num_pieces = 30;
-  plist.reserve(num_pieces);
-  nlist.reserve(num_pieces);
-  alist.reserve(num_pieces);
-  is_doubled_sided.reserve(num_pieces);
+  rbody.forces.resize(num_pieces);
+  rbody.positions.reserve(num_pieces);
+  rbody.normals.reserve(num_pieces);
+  rbody.areas.reserve(num_pieces);
+  rbody.is_double_sided.reserve(num_pieces);
   const size_t np_per_side = num_pieces / 3;
-
-  // first let us compute the
+  auto side_normal = wedge.GetNormal();
+  for (size_t tri_idx = 0; tri_idx < 3; ++tri_idx) {
+    // For each edge
+    ChVector<> beg = wedge.GetPoint(tri_idx);
+    ChVector<> end = wedge.GetPoint(tri_idx + 1);
+    ChVector<> edge = end - beg;
+    double edge_length = edge.Length();
+    ChVector<> inplane_normal;
+    inplane_normal.Cross(edge, side_normal);
+    if (!inplane_normal.Normalize()) {
+      assert(0);
+    }
+    for (size_t i = 0; i < np_per_side; ++i) {
+      rbody.positions.emplace_back(beg + edge * double(i + 0.5) / np_per_side);
+      rbody.normals.emplace_back(inplane_normal);
+      rbody.areas.emplace_back(1.0 / np_per_side * edge_length * wedge.depth);
+      rbody.is_double_sided.push_back(false);
+    }
+  }
 }
 
 } // namespace
@@ -94,7 +137,7 @@ double SegA(double s, double A) {
   return A * cos(CH_C_2PI * s);
 }
 
-void ChronoRobotBuilder::BuildRobot(double depth, double alpha, double beta) {
+void ChronoRobotBuilder::BuildRobot(double depth, double beta, double gamma) {
   ChSystem *ch_system = app_->GetSystem();
   {
     ChSharedBodyPtr ground(new ChBodyEasyBox(100, 1, 100, 1, false, false));
@@ -102,26 +145,36 @@ void ChronoRobotBuilder::BuildRobot(double depth, double alpha, double beta) {
     ch_system->Add(ground);
 
     // Create a wedge shape.
+    double lx = 5.0;
+    double ly = 3.0;
+    double lz = 5.0;
+
     std::vector<ChVector<> > points;
-    double lx = 1.0;
-    double ly = 0.3;
-    double lz = 1.0;
-    points.emplace_back(0.5 * lx, 0, lz * 0.5);
-    points.emplace_back(-0.5 * lx, 0, lz * 0.5);
-    points.emplace_back(0, ly, lz * 0.5);
-    points.emplace_back(0.5 * lx, 0, -lz * 0.5);
-    points.emplace_back(-0.5 * lx, 0, -lz * 0.5);
-    points.emplace_back(0, ly, -lz * 0.5);
+    Wedge wedge;
+    wedge.SetPoint(0, lx * 0.5, 0);
+    wedge.SetPoint(1, -lx * 0.5, 0);
+    wedge.SetPoint(2, 0, ly);
+    wedge.depth = lz;
+    wedge.Recenter();
+    for (int sign = -1; sign <= 1; sign += 2) {
+      for (size_t i = 0; i < 3; ++i) {
+        ChVector<> pt = wedge.GetPoint(i);
+        pt(2) = sign * lz * 0.5;
+        points.emplace_back(pt);
+      }
+    }
     ChSharedBodyPtr foot(new ChBodyEasyConvexHull(points, 1, true, true));
     foot->SetPos(ChVector<>(0, -depth, 0));
-    foot->SetRot(Q_from_AngZ(alpha));
-    rft_body_list_.emplace_back(foot.get());
+    foot->SetRot(Q_from_AngZ(beta));
     ch_system->Add(foot);
-
+    // Create the rft body of the foot
+    rft_body_list_.emplace_back(foot.get());
+    RFTBody &rbody = rft_body_list_.back();
+    MeshWedge(wedge, rbody);
     // Now Add linear actuator.
 
     ChVector<> origin(0, 0, 0);
-    ChQuaternion<> orientation = Q_from_AngX(CH_C_PI_2) * Q_from_AngY(beta);
+    ChQuaternion<> orientation = Q_from_AngX(CH_C_PI_2) * Q_from_AngY(gamma);
     ChVector<> z_direction = orientation.Rotate(ChVector<>(0, 0, 1));
 
     ChSharedPtr<ChLinkLockPrismatic> prismatic(new ChLinkLockPrismatic());
@@ -131,8 +184,8 @@ void ChronoRobotBuilder::BuildRobot(double depth, double alpha, double beta) {
     ChSharedPtr<ChLinkLinActuator> actuator(new ChLinkLinActuator());
     actuator->Initialize(
         foot, ground, false, ChCoordsys<>(foot->GetPos(), QUNIT),
-        ChCoordsys<>(foot->GetPos() + 20.0 * z_direction, QUNIT));
-    actuator->Set_lin_offset(20);
+        ChCoordsys<>(foot->GetPos() + 100.0 * z_direction, QUNIT));
+    actuator->Set_lin_offset(100);
     ch_system->Add(actuator);
     controller_.AddEngine(actuator.get());
   }

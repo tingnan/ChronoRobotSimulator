@@ -15,7 +15,6 @@ class ChIrrApp;
 }
 
 struct RFTBody {
-public:
   RFTBody(chrono::ChBody *p) : chbody(p) {}
   std::vector<chrono::ChVector<> > GetTransformedNormalList();
   std::vector<chrono::ChVector<> > GetTransformedPositionList();
