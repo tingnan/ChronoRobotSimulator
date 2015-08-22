@@ -65,7 +65,7 @@ ChVector<> Wedge::GetBaryCenter() const {
 double Wedge::GetTriangleArea() const {
   ChVector<> area;
   area.Cross(points_[1] - points_[0], points_[2] - points_[1]);
-  return abs(area(2));
+  return fabs(area(2));
 }
 
 void MeshBox(ChVector<> sizes, std::vector<ChVector<> > &plist,

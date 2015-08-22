@@ -291,7 +291,7 @@ void RFTSystem::InteractPieceVert(const ChVector<> &surface_position,
     }
     ChVector<> v_direction = surface_velocity / abs_vel;
     // The RFT vertical plane is determined by velocity and y_direction
-    ChVector<> rft_plane_x =
+    rft_plane_x =
         ComputeRFTPlaneX(v_direction, rft_plane_x, rft_plane_y);
     // If the surface normal is outside this plane, we do a projection
     ChVector<> rft_plane_normal;
