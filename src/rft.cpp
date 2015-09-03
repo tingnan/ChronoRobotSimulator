@@ -125,6 +125,7 @@ ChVector<> ComputeRFTPlaneX(const ChVector<> &v_direction,
   ChVector<> rft_plane_normal;
   rft_plane_normal.Cross(y_direction, v_direction);
   double normal_length = length(rft_plane_normal);
+
   if (normal_length < kLengthThreshold) {
     return x_direction; // default
   }
@@ -291,8 +292,7 @@ void RFTSystem::InteractPieceVert(const ChVector<> &surface_position,
     }
     ChVector<> v_direction = surface_velocity / abs_vel;
     // The RFT vertical plane is determined by velocity and y_direction
-    rft_plane_x =
-        ComputeRFTPlaneX(v_direction, rft_plane_x, rft_plane_y);
+    rft_plane_x = ComputeRFTPlaneX(v_direction, rft_plane_x, rft_plane_y);
     // If the surface normal is outside this plane, we do a projection
     ChVector<> rft_plane_normal;
     rft_plane_normal.Cross(rft_plane_x, rft_plane_y);
@@ -314,13 +314,12 @@ void RFTSystem::InteractPieceVert(const ChVector<> &surface_position,
     double beta =
         GetOriAngle(projected_surface_normal, rft_plane_x, rft_plane_y);
     double gamma = GetVelAngle(v_direction, rft_plane_y);
-    // std::cout << beta << " " << gamma << " : ";
+    // std::cout << beta << " " << gamma << "\n";
     double fx = Interpolate2(kBeta, 7, kGamma, 13, kPoppyLPForceX, beta, gamma);
     double fy = Interpolate2(kBeta, 7, kGamma, 13, kPoppyLPForceY, beta, gamma);
     // The force normal to RFT plane is ignored for now.
     force =
         (rft_plane_x * fx + rft_plane_y * fy) * fabs(height) * projected_area;
-    // std::cout << force << std::endl;
   } else {
     force = ChVector<>(0.0, 0.0, 0.0);
   }

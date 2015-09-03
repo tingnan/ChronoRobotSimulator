@@ -8,6 +8,7 @@
 #include "include/controller.h"
 #include "include/robot.h"
 #include "include/rft.h"
+#include "json/json.h"
 
 using namespace chrono;
 using irr::ChIrrApp;
@@ -126,6 +127,35 @@ void MeshWedge(const Wedge &wedge, RFTBody &rbody) {
       rbody.is_double_sided.push_back(false);
     }
   }
+}
+
+ChVector<> ParseTranslation(const Json::Value &translation) {
+  if (!translation.isNull()) {
+    return ChVector<>(translation[0].asDouble(), translation[1].asDouble(),
+                      translation[2].asDouble());
+  }
+  return ChVector<>();
+}
+
+ChQuaternion<> ParseRotation(const Json::Value &rotation) {
+  if (!rotation.isNull()) {
+    return ChQuaternion<>(rotation[0].asDouble(), rotation[1].asDouble(),
+                          rotation[2].asDouble(), rotation[3].asDouble());
+  }
+  return ChQuaternion<>(1, 0, 0, 0);
+}
+
+ChSharedPtr<ChBody> ParseBody(const Json::Value &body_obj) {
+  ChSharedPtr<ChBody> body_ptr(new ChBody);
+  body_ptr->SetBodyFixed(body_obj.get("is_dynamic", false).asBool());
+  // Parse the transformation of the body
+  auto &frame_obj = body_obj["frame"];
+  body_ptr->SetPos(ParseTranslation(frame_obj["translation"]));
+  body_ptr->SetRot(ParseRotation(frame_obj["rotation"]));
+  // Parse the collision shape and visual shape of the body
+  auto &shape_obj = body_obj["collision_shape"];
+  // Parse the material property of the body
+  auto &material_obj = body_obj["material"];
 }
 
 } // namespace
