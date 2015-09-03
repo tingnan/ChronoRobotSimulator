@@ -8,6 +8,7 @@
 #include "include/controller.h"
 #include "include/robot.h"
 #include "include/rft.h"
+#include "json/json.h"
 
 using namespace chrono;
 using irr::ChIrrApp;
@@ -127,6 +128,8 @@ void MeshWedge(const Wedge &wedge, RFTBody &rbody) {
     }
   }
 }
+
+void ParseBody(const Json::Value &body_obj) {}
 
 } // namespace
 
