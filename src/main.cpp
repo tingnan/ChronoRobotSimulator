@@ -5,6 +5,7 @@
 #include "include/robot.h"
 #include "include/chrono_io.h"
 #include "include/controller.h"
+#include "json/json.h"
 
 using namespace chrono;
 using namespace irr;
@@ -32,6 +33,33 @@ void ApplyRFTForce(std::vector<RFTBody> &body_list, RFTSystem &rsystem) {
   for (unsigned int i = 0; i < nnodes; ++i) {
     rsystem.InteractExt(body_list[i]);
   }
+}
+
+std::string Stringify(const char *path) {
+  std::ifstream file_handle(path, std::ios::binary | std::ios::in);
+  std::string text;
+  if (file_handle.is_open()) {
+    file_handle.seekg(0, std::ios::end);
+    text.resize(file_handle.tellg());
+    file_handle.seekg(0, std::ios::beg);
+    file_handle.read(&text[0], text.size());
+    file_handle.close();
+  } else {
+    std::cout << "cannot open file\n";
+  }
+  return text;
+}
+
+Json::Value CreateJsonObject(const char *file) {
+  std::string content = Stringify(file);
+  Json::Reader reader;
+  Json::Value json_obj;
+  bool success = reader.parse(content, json_obj);
+  if (!success) {
+    std::cout << "not a valid json file" << std::endl;
+    exit(-1);
+  }
+  return json_obj;
 }
 
 int main(int argc, char *argv[]) {
@@ -65,20 +93,13 @@ int main(int argc, char *argv[]) {
 
   //// Create a RFT ground, set the scaling factor to be 1;
   RFTSystem rsystem(&application);
-
   // now let us build the robot_builder;
-  ChronoRobotBuilder robot_builder(&application);
-  double beta = atof(argv[1]);
-  double gamma = atof(argv[2]);
-  robot_builder.BuildRobot(0.0, beta, gamma);
-  auto controller = robot_builder.GetController();
-  controller->EnablePositionControl();
-  // robot_builder.SetCollide(false);
-  application.AssetBindAll();
-  application.AssetUpdateAll();
+  WorldBuilder world_builder(&application);
+  Json::Value world_obj = CreateJsonObject("json_example.json");
+  world_builder.CreateRigidBodies(world_obj["body_list"]);
 
   // get all the RFT body_list to interact
-  std::vector<RFTBody> &body_list = robot_builder.getRFTBodyList();
+  // std::vector<RFTBody> &body_list = robot_builder.getRFTBodyList();
 
   // set io
   IOManager io_manager(&my_system, "snake");
@@ -89,10 +110,10 @@ int main(int argc, char *argv[]) {
   int count = 0;
   int savestep = 1e-2 / application.GetTimestep();
 
-  while (application.GetDevice()->run() && my_system.GetChTime() <= 10) {
+  while (application.GetDevice()->run()) {
     // the core simulation part
     if (my_system.GetChTime() >= 1.0) {
-      ApplyRFTForce(body_list, rsystem);
+      // ApplyRFTForce(body_list, rsystem);
     }
 
     application.DoStep();
@@ -112,7 +133,7 @@ int main(int argc, char *argv[]) {
       application.DrawAll();
 
       if (my_system.GetChTime() >= 1.0) {
-        ApplyRFTForce(body_list, rsystem);
+        // ApplyRFTForce(body_list, rsystem);
       }
 
       // draw a grid to help visualizattion
@@ -127,7 +148,7 @@ int main(int argc, char *argv[]) {
       io_manager.DumpNodInfo();
       io_manager.DumpJntInfo();
       io_manager.DumpContact();
-      DumpRFTInfo(body_list, rft_file);
+      // DumpRFTInfo(body_list, rft_file);
       count = 0;
       continue;
     }

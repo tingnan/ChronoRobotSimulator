@@ -5,8 +5,6 @@
 
 #include <core/ChMath.h>
 
-#include "include/controller.h"
-
 class RFTBody;
 
 namespace irr {
@@ -17,21 +15,19 @@ namespace chrono {
 class ChBody;
 }
 
-class ChronoRobotBuilder {
+namespace Json {
+class Value;
+}
+
+class WorldBuilder {
 public:
-  ChronoRobotBuilder(class irr::ChIrrApp *app);
-  void BuildRobot(double depth, double alpha, double beta);
-  void ResetRobot();
-  class RobotController *GetController() { return &controller_; }
-  std::vector<RFTBody> &getRFTBodyList() { return rft_body_list_; }
-  chrono::ChVector<> GetRobotCoMPosition();
-  void SetCollide(bool);
+  WorldBuilder(class irr::ChIrrApp *app);
+  void CreateRigidBodies(const Json::Value &body_list);
+  std::vector<chrono::ChBody *> GetBodyList() { return ch_body_list_; }
 
 private:
   class irr::ChIrrApp *app_;
-  std::vector<RFTBody> rft_body_list_;
   std::vector<chrono::ChBody *> ch_body_list_;
-  RobotController controller_;
 };
 
 #endif // INCLUDE_ROBOT_H_

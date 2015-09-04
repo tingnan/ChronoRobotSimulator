@@ -145,31 +145,93 @@ ChQuaternion<> ParseRotation(const Json::Value &rotation) {
   return ChQuaternion<>(1, 0, 0, 0);
 }
 
+ChVector<> ParsePoint(const Json::Value &point_obj) {
+  ChVector<> point(point_obj[0].asDouble(), point_obj[1].asDouble(),
+                   point_obj[2].asDouble());
+  return point;
+}
+
+std::vector<ChVector<> > ParsePoints(const Json::Value &vertices) {
+  std::vector<ChVector<> > ch_points;
+  for (Json::Value::const_iterator itr = vertices.begin();
+       itr != vertices.end(); ++itr) {
+    ch_points.emplace_back(ParsePoint(*itr));
+  }
+  return ch_points;
+}
+
+ChSharedPtr<ChBody> CreateBodyFromShape(const Json::Value &shape_obj) {
+  if (shape_obj.isNull()) {
+    // empty body
+    return ChSharedPtr<ChBody>(new ChBody);
+  }
+  assert(shape_obj.isMember("type"));
+  auto shape_name = shape_obj["type"].asString();
+  const double kDensity = 1.0;
+  const bool kEnableCollision = true;
+  const bool kEnableVisual = true;
+  if (shape_name == "box") {
+    double lx = shape_obj["lx"].asDouble();
+    double ly = shape_obj["ly"].asDouble();
+    double lz = shape_obj["lz"].asDouble();
+    return ChSharedPtr<ChBodyEasyBox>(new ChBodyEasyBox(
+        lx, ly, lz, kDensity, kEnableCollision, kEnableVisual));
+  }
+
+  if (shape_name == "convexhull") {
+    auto ch_points = ParsePoints(shape_obj["vertices"]);
+    return ChSharedPtr<ChBodyEasyConvexHull>(new ChBodyEasyConvexHull(
+        ch_points, kDensity, kEnableCollision, kEnableVisual));
+  }
+
+  return ChSharedPtr<ChBody>(new ChBody);
+}
+
+void SetBodyMaterial(const Json::Value &material_obj, ChBody *body_ptr) {
+  if (!material_obj.isNull()) {
+    const double kDensity = 1.0;
+    double density = material_obj.get("density", kDensity).asDouble();
+    body_ptr->SetDensity(density);
+    // Scale the mass/inertia with the real density.
+    body_ptr->SetMass(body_ptr->GetMass() * density);
+    body_ptr->SetInertia(body_ptr->GetInertia() * density);
+    // Friction
+    const double kFriction = 0.0;
+    double friction = material_obj.get("friction", kFriction).asDouble();
+    body_ptr->GetMaterialSurface()->SetFriction(friction);
+  }
+}
+
 ChSharedPtr<ChBody> ParseBody(const Json::Value &body_obj) {
-  ChSharedPtr<ChBody> body_ptr(new ChBody);
+  // Parse the collision shape and visual shape of the body.
+  const auto &shape_obj = body_obj["collision_shape"];
+  ChSharedPtr<ChBody> body_ptr = CreateBodyFromShape(shape_obj);
   body_ptr->SetBodyFixed(body_obj.get("is_dynamic", false).asBool());
-  // Parse the transformation of the body
-  auto &frame_obj = body_obj["frame"];
+  // Parse the transformation of the body.
+  const auto &frame_obj = body_obj["frame"];
   body_ptr->SetPos(ParseTranslation(frame_obj["translation"]));
   body_ptr->SetRot(ParseRotation(frame_obj["rotation"]));
-  // Parse the collision shape and visual shape of the body
-  auto &shape_obj = body_obj["collision_shape"];
-  // Parse the material property of the body
-  auto &material_obj = body_obj["material"];
+  // Parse the material property of the body.
+  const auto &material_obj = body_obj["material"];
+  SetBodyMaterial(material_obj, body_ptr.get());
+  return body_ptr;
 }
 
 } // namespace
 
-ChronoRobotBuilder::ChronoRobotBuilder(ChIrrApp *pApp) : app_(pApp) {}
+WorldBuilder::WorldBuilder(ChIrrApp *pApp) : app_(pApp) {}
 
-double SegA(double s, double A) {
-  // relative frame rotation between each seg;
-  return A * cos(CH_C_2PI * s);
-}
-
-void ChronoRobotBuilder::BuildRobot(double depth, double beta, double gamma) {
+void WorldBuilder::CreateRigidBodies(const Json::Value &body_list) {
   ChSystem *ch_system = app_->GetSystem();
-  {
+  for (Json::Value::const_iterator itr = body_list.begin();
+       itr != body_list.end(); ++itr) {
+    ChSharedPtr<ChBody> body_ptr = ParseBody(*itr);
+    ch_system->Add(body_ptr);
+  }
+
+  app_->AssetBindAll();
+  app_->AssetUpdateAll();
+  /* {
     ChSharedBodyPtr ground(new ChBodyEasyBox(100, 1, 100, 1, false, false));
     ground->SetBodyFixed(true);
     ch_system->Add(ground);
@@ -218,18 +280,5 @@ void ChronoRobotBuilder::BuildRobot(double depth, double beta, double gamma) {
     actuator->Set_lin_offset(100);
     ch_system->Add(actuator);
     controller_.AddEngine(actuator.get());
-  }
-}
-
-ChVector<> ChronoRobotBuilder::GetRobotCoMPosition() {
-  ChVector<> pos;
-  const size_t nnode = rft_body_list_.size();
-  double total_mass = 0;
-  for (int i = 0; i < nnode; ++i) {
-    ChVector<> tmppos = rft_body_list_[i].chbody->GetPos();
-    double tmpmass = rft_body_list_[i].chbody->GetMass();
-    pos += tmppos * tmpmass;
-    total_mass += tmpmass;
-  }
-  return pos / total_mass;
+  }*/
 }
