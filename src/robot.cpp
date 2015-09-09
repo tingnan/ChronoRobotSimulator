@@ -228,7 +228,6 @@ void WorldBuilder::CreateRigidBodies(const Json::Value &body_list) {
     ChSharedPtr<ChBody> body_ptr = ParseBody(*itr);
     ch_system->Add(body_ptr);
   }
-
   app_->AssetBindAll();
   app_->AssetUpdateAll();
   /* {
