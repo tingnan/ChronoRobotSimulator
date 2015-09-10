@@ -1,10 +1,10 @@
 #include <array>
+#include <random>
 
 #include <unit_IRRLICHT/ChIrrApp.h>
 #include <assets/ChColorAsset.h>
 #include <physics/ChBodyEasy.h>
 #include <physics/ChSystem.h>
-#include "include/chfunction_squarewave.h"
 #include "include/controller.h"
 #include "include/robot.h"
 #include "include/rft.h"
@@ -221,63 +221,79 @@ ChSharedPtr<ChBody> ParseBody(const Json::Value &body_obj) {
 
 WorldBuilder::WorldBuilder(ChIrrApp *pApp) : app_(pApp) {}
 
-void WorldBuilder::CreateRigidBodies(const Json::Value &body_list) {
+void WorldBuilder::CreateRigidBodies(const Json::Value &params) {
   ChSystem *ch_system = app_->GetSystem();
-  for (Json::Value::const_iterator itr = body_list.begin();
-       itr != body_list.end(); ++itr) {
-    ChSharedPtr<ChBody> body_ptr = ParseBody(*itr);
-    ch_system->Add(body_ptr);
+
+  const double kDensity = 1.0;
+  const bool kEnableCollision = true;
+  const bool kEnableVisual = true;
+
+  // Build a snake body.
+  {
+    ChSharedPtr<ChBodyEasyBox> ground(
+        new ChBodyEasyBox(500, 0.1, 500, 1.0, false, false));
+    ground->SetBodyFixed(true);
+    ch_system->Add(ground);
+    // the Snake params
+    const size_t kNumSegments = 25;
+    const double kL = 25.0;
+    const double kW = 0.5;
+    const double kLx = kL / kNumSegments;
+    ChVector<> center_pos(0, 0, -0.5);
+    std::vector<ChSharedBodyPtr> body_container_;
+    for (size_t i = 0; i < kNumSegments; ++i) {
+      ChSharedPtr<ChBodyEasyBox> body_ptr(new ChBodyEasyBox(
+          kLx, kW, kW, kDensity, kEnableCollision, kEnableVisual));
+      body_ptr->SetPos(center_pos);
+      body_ptr->SetIdentifier(i);
+      ch_system->Add(body_ptr);
+      body_list_.push_back(body_ptr.get());
+      body_container_.push_back(body_ptr);
+      if (i > 0) {
+        ChSharedPtr<ChLinkEngine> joint_ptr(new ChLinkEngine());
+        ChVector<> position = center_pos - ChVector<>(0.5 * kLx, 0, 0);
+        ChQuaternion<> orientation(Q_from_AngX(CH_C_PI_2));
+        joint_ptr->Initialize(body_container_[i], body_container_[i - 1],
+                              ChCoordsys<>(position, orientation));
+        ChSharedPtr<ChFunction_Sine> funct(new ChFunction_Sine(
+            double(i * 2) / kNumSegments * CH_C_2PI, 0.2, 0.4));
+        joint_ptr->Set_rot_funct(funct);
+        ch_system->Add(joint_ptr);
+      }
+      ChSharedPtr<ChLinkLockPlanePlane> inplanelink(new ChLinkLockPlanePlane);
+      inplanelink->Initialize(
+          ground, body_container_[i],
+          ChCoordsys<>(ChVector<>(), Q_from_AngX(CH_C_PI_2)));
+      ch_system->Add(inplanelink);
+
+      center_pos += ChVector<>(kLx, 0, 0);
+    }
+  }
+
+  // Build a set of random collidables.
+  {
+    const size_t kGridSize = 20;
+    const double kGridDist = 5.0;
+    const double kHeight = 2.0;
+    const double kSigma = 1.0;
+
+    std::mt19937 generator(time(0));
+    std::normal_distribution<double> normal_dist_radius(0.0, kSigma);
+
+    for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {
+      for (size_t z_grid = 0; z_grid < kGridSize; ++z_grid) {
+        double radius = fabs(normal_dist_radius(generator));
+        ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
+            radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
+        body_ptr->SetBodyFixed(true);
+        body_ptr->SetIdentifier(-1);
+        double x_pos = x_grid * kGridDist;
+        double z_pos = (z_grid - 0.5 * kGridSize) * kGridDist;
+        body_ptr->SetPos(ChVector<>(x_pos, 0, z_pos));
+        ch_system->Add(body_ptr);
+      }
+    }
   }
   app_->AssetBindAll();
   app_->AssetUpdateAll();
-  /* {
-    ChSharedBodyPtr ground(new ChBodyEasyBox(100, 1, 100, 1, false, false));
-    ground->SetBodyFixed(true);
-    ch_system->Add(ground);
-
-    // Create a wedge shape.
-    double lx = 5.0;
-    double ly = 3.0;
-    double lz = 5.0;
-
-    std::vector<ChVector<> > points;
-    Wedge wedge;
-    wedge.SetPoint(0, lx * 0.5, 0);
-    wedge.SetPoint(1, -lx * 0.5, 0);
-    wedge.SetPoint(2, 0, ly);
-    wedge.depth = lz;
-    wedge.Recenter();
-    for (int sign = -1; sign <= 1; sign += 2) {
-      for (size_t i = 0; i < 3; ++i) {
-        ChVector<> pt = wedge.GetPoint(i);
-        pt(2) = sign * lz * 0.5;
-        points.emplace_back(pt);
-      }
-    }
-    ChSharedBodyPtr foot(new ChBodyEasyConvexHull(points, 1, true, true));
-    foot->SetPos(ChVector<>(0, -depth, 0));
-    foot->SetRot(Q_from_AngZ(beta));
-    ch_system->Add(foot);
-    // Create the rft body of the foot
-    rft_body_list_.emplace_back(foot.get());
-    RFTBody &rbody = rft_body_list_.back();
-    MeshWedge(wedge, rbody);
-    // Now Add linear actuator.
-
-    ChVector<> origin(0, 0, 0);
-    ChQuaternion<> orientation = Q_from_AngX(CH_C_PI_2) * Q_from_AngY(gamma);
-    ChVector<> z_direction = orientation.Rotate(ChVector<>(0, 0, 1));
-
-    ChSharedPtr<ChLinkLockPrismatic> prismatic(new ChLinkLockPrismatic());
-    prismatic->Initialize(foot, ground, ChCoordsys<>(origin, orientation));
-    ch_system->Add(prismatic);
-
-    ChSharedPtr<ChLinkLinActuator> actuator(new ChLinkLinActuator());
-    actuator->Initialize(
-        foot, ground, false, ChCoordsys<>(foot->GetPos(), QUNIT),
-        ChCoordsys<>(foot->GetPos() + 100.0 * z_direction, QUNIT));
-    actuator->Set_lin_offset(100);
-    ch_system->Add(actuator);
-    controller_.AddEngine(actuator.get());
-  }*/
 }

@@ -83,11 +83,11 @@ int main(int argc, char *argv[]) {
   ChIrrWizard::add_typical_Sky(application.GetDevice());
   ChIrrWizard::add_typical_Lights(application.GetDevice());
   ChIrrWizard::add_typical_Camera(application.GetDevice(),
-                                  core::vector3df(0, 0, 15),
+                                  core::vector3df(-15, 20, 0),
                                   core::vector3df(0, 0, 0));
   scene::ICameraSceneNode *cur_cam =
       application.GetSceneManager()->getActiveCamera();
-  cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
+  // cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
   MyEventReceiver receiver(&application);
   application.SetUserEventReceiver(&receiver);
 
@@ -108,7 +108,10 @@ int main(int argc, char *argv[]) {
   // begin simulation
 
   int count = 0;
-  int savestep = 1e-2 / application.GetTimestep();
+  int save_step = 1e-2 / application.GetTimestep();
+  // screen capture?
+  application.SetVideoframeSave(true);
+  application.SetVideoframeSaveInterval(save_step);
 
   while (application.GetDevice()->run()) {
     // the core simulation part
@@ -126,7 +129,7 @@ int main(int argc, char *argv[]) {
     // cur_cam->setTarget(core::vector3df(cam_pos.x, cam_pos.y, cam_pos.z));
 
     // io control
-    if (count == savestep - 1) {
+    if (count == save_step - 1) {
 
       application.GetVideoDriver()->beginScene(
           true, true, video::SColor(255, 140, 161, 192));
@@ -145,9 +148,9 @@ int main(int argc, char *argv[]) {
 
       std::cout << std::fixed << std::setprecision(4) << my_system.GetChTime()
                 << std::endl;
-      io_manager.DumpNodInfo();
-      io_manager.DumpJntInfo();
-      io_manager.DumpContact();
+      // io_manager.DumpNodInfo();
+      // io_manager.DumpJntInfo();
+      // io_manager.DumpContact();
       // DumpRFTInfo(body_list, rft_file);
       count = 0;
       continue;
@@ -155,10 +158,6 @@ int main(int argc, char *argv[]) {
 
     if (!application.GetPaused())
       ++count;
-
-    // screen capture?
-    // application.SetVideoframeSave(true);
-    // application.SetVideoframeSaveInterval(savestep);
   }
 
   return 0;

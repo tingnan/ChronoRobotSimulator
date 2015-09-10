@@ -40,29 +40,28 @@ public:
     // we will use the internal information of the engine_ to compute the error;
     // then we can use the error to compute the torque needed
 
-    double currRotation = engine_->Get_mot_rot();
-    double desiredRotation = engine_->Get_rot_funct()->Get_y(curr_t);
-    double currError = desiredRotation - currRotation;
+    double curr_rotation = engine_->Get_mot_rot();
+    double desired_rotation = engine_->Get_rot_funct()->Get_y(curr_t);
+    double curr_error = desired_rotation - curr_rotation;
 
-    double currRotation_dt = engine_->Get_mot_rot_dt();
-    double desiredRotation_dt = engine_->Get_rot_funct()->Get_y_dx(curr_t);
-    double currError_dt = desiredRotation_dt - currRotation_dt;
+    double curr_rotation_dt = engine_->Get_mot_rot_dt();
+    double desired_rotation_dt = engine_->Get_rot_funct()->Get_y_dx(curr_t);
+    double curr_error_dt = desired_rotation_dt - curr_rotation_dt;
 
     // trapezoidal method
-    accu_error_ += 0.5 * (currError + last_error_) * dt;
+    accu_error_ += 0.5 * (curr_error + last_error_) * dt;
 
-    double Out = p_coeff * currError + i_coeff * accu_error_ +
-                 d_coeff * (currError - last_error_) / dt;
+    double output = p_coeff * curr_error + i_coeff * accu_error_ +
+                    d_coeff * (curr_error - last_error_) / dt;
     if (max > min) {
       // set the limit
-      Out = std::max(std::min(Out, max), min);
+      output = std::max(std::min(output, max), min);
     }
 
-    last_error_ = currError;
+    last_error_ = curr_error;
     last_called_ = curr_t;
-    last_value_ = Out;
-    // std::cout << accu_error_ << std::endl;
-    return Out;
+    last_value_ = output;
+    return output;
   }
 
   double Get_y_dx(double new_t) {
@@ -82,7 +81,7 @@ protected:
   double last_called_;
   // the engine it is attached to
   ChLinkEngine *engine_;
-  // last output
+  // last outputput
   double last_value_;
 };
 } // namespace chrono
