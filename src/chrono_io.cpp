@@ -13,45 +13,39 @@
 
 using namespace chrono;
 
-// dump pos vel acc, rot, ome, and rot_acc for the body
-void IOManager::DumpNodInfo() {
-  mov_file_ << std::setprecision(8);
-  mov_file_ << std::scientific;
-  const size_t nnodes = ch_system_->Get_bodylist()->size();
-  for (unsigned int i = 0; i < nnodes; ++i) {
-    ChBody *curbody = (*ch_system_->Get_bodylist())[i];
-    if (curbody->GetIdentifier() == -1)
-      continue;
-    mov_file_ << curbody->GetIdentifier() << " ";
-    mov_file_ << curbody->GetPos() << " " << curbody->GetPos_dt() << " ";
-    ChQuaternion<> rotquat = curbody->GetRot();
+void SerializeBodies(std::vector<ChBody *> &body_list,
+                     std::ofstream &mov_file) {
+  mov_file << std::setprecision(8);
+  mov_file << std::scientific;
+  for (size_t i = 0; i < body_list.size(); ++i) {
+    auto cur_body = body_list[i];
+    mov_file << cur_body->GetIdentifier() << " ";
+    mov_file << cur_body->GetPos() << " " << cur_body->GetPos_dt() << " ";
+    ChQuaternion<> rotquat = cur_body->GetRot();
     // needs to conjugate to satisfy the matlab convention
     rotquat.Conjugate();
-    mov_file_ << rotquat << " ";
+    mov_file << rotquat << " ";
     // now output the angular velocity
-    mov_file_ << curbody->GetWvel_par() << "\n";
+    mov_file << cur_body->GetWvel_par() << "\n";
   }
-  mov_file_.flush();
+  mov_file.flush();
 }
 
-// dump pos vel acc, rot, ome, and rot_acc for the link
-void IOManager::DumpJntInfo() {
-  jnt_file_ << std::setprecision(8);
-  jnt_file_ << std::scientific;
-  std::vector<ChLink *>::iterator itr;
-  for (itr = ch_system_->Get_linklist()->begin();
-       itr != ch_system_->Get_linklist()->end(); ++itr) {
-    ChVector<> localforce = (*itr)->Get_react_force();
-    double localtorque = ((chrono::ChLinkEngine *)*itr)->Get_mot_torque();
-    jnt_file_ << (*itr)->GetIdentifier() << " ";
-    jnt_file_ << localforce << " " << localtorque << "\n";
+void SerializeEngines(std::vector<chrono::ChLinkEngine *> &engine_list,
+                      std::ofstream &jnt_file) {
+  jnt_file << std::setprecision(8);
+  jnt_file << std::scientific;
+  for (size_t i = 0; i < engine_list.size(); ++i) {
+    jnt_file << engine_list[i]->GetIdentifier() << " ";
+    ChVector<> localforce = engine_list[i]->Get_react_force();
+    double localtorque = engine_list[i]->Get_mot_torque();
+    jnt_file << localforce << " " << localtorque << "\n";
   }
-  jnt_file_.flush();
+  jnt_file.flush();
 }
 
-void IOManager::DumpContact() {}
-
-void DumpRFTInfo(std::vector<RFTBody> &rft_body_list, std::ofstream &rft_file) {
+void SerializeRFTForce(std::vector<RFTBody> &rft_body_list,
+                       std::ofstream &rft_file) {
   const size_t nnodes = rft_body_list.size();
   for (int i = 0; i < nnodes; ++i) {
     rft_file << rft_body_list[i].chbody->GetIdentifier() << " ";

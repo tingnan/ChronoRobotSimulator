@@ -13,23 +13,19 @@ class ChIrrApp;
 
 namespace chrono {
 class ChBody;
-class ChLinkLock;
+class ChLinkEngine;
 }
 
 namespace Json {
 class Value;
 }
 
-class WorldBuilder {
-public:
-  WorldBuilder(class irr::ChIrrApp *app);
-  void CreateRigidBodies(const Json::Value &params);
-  std::vector<chrono::ChBody *> GetBodyList() { return body_list_; }
+struct Robot {
 
-private:
-  class irr::ChIrrApp *app_;
-  std::vector<chrono::ChBody *> body_list_;
-  std::vector<chrono::ChLinkLock *> engine_list_;
+  std::vector<chrono::ChBody *> body_list;
+  std::vector<chrono::ChLinkEngine *> engine_list;
 };
+
+Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params);
 
 #endif // INCLUDE_ROBOT_H_
