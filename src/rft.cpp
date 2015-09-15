@@ -16,6 +16,7 @@ namespace {
 
 const double kRFTVelocityThreshold = 1e-3;
 const double kLengthThreshold = 1e-3;
+const double kRoundOffError = 1e-4;
 
 // The vertical RFT data
 const double kBeta[] = { -1.5708, -1.0472, -0.5236, 0, 0.5236, 1.0472, 1.5708 };
@@ -255,8 +256,8 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
     ChVector<> moment;
     const size_t nn = rbody.mesh.positions.size();
     for (int i = 0; i < nn; ++i) {
-      InteractPieceVert(position_list[i], velocity_list[i], normal_list[i],
-                        is_double_sided[i], area_list[i], rbody.forces[i]);
+      InteractPieceVertical(position_list[i], velocity_list[i], normal_list[i],
+                            is_double_sided[i], area_list[i], rbody.forces[i]);
       // DrawVector(ch_app_, position_list[i], rbody.forces[i], 50, 0);
       force += rbody.forces[i];
       ChVector<> tmp;
@@ -270,11 +271,60 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
   }
 }
 
-void RFTSystem::InteractPieceVert(const ChVector<> &surface_position,
-                                  const ChVector<> &surface_velocity,
-                                  const ChVector<> &surface_normal,
-                                  bool is_double_sided, double area,
-                                  ChVector<> &force) {
+void
+RFTSystem::InteractPieceHorizontal(const chrono::ChVector<> &surface_position,
+                                   const chrono::ChVector<> &surface_velocity,
+                                   const chrono::ChVector<> &surface_normal,
+                                   bool is_double_sided, double area,
+                                   chrono::ChVector<> &force) {
+  ChVector<> rft_plane_y = ydir_;
+  double height = dot(rft_plane_y, surface_position);
+  // If the normal and velocity is not in the horizontal plane
+  if (abs(surface_normal.y) > kRoundOffError ||
+      abs(surface_velocity.y) > kRoundOffError) {
+    force = ChVector<>(0, 0, 0);
+    return;
+  }
+  if (height < 0) {
+    if (dot(surface_normal, surface_velocity) < -kRoundOffError &&
+        !is_double_sided) {
+      force = ChVector<>(0.0, 0.0, 0.0);
+      return;
+    }
+    double abs_vel = surface_velocity.Length();
+    if (abs_vel < kRFTVelocityThreshold) {
+      return;
+    }
+    ChVector<> v_direction = surface_velocity / abs_vel;
+    // Project the velocity into x-z plane.
+
+    // Compute the angles; We will create the norm/tangent frame first
+    ChVector<> frame_normal = surface_normal;
+    double cospsi = dot(v_direction, frame_normal);
+    if (cospsi > 0) {
+      frame_normal = -frame_normal;
+    }
+    ChVector<> frame_tangent;
+    frame_tangent.x = frame_normal.z;
+    frame_tangent.z = -frame_normal.x;
+    double sinpsi = dot(frame_tangent, v_direction);
+    if (sinpsi > 0) {
+      frame_tangent = -frame_tangent;
+    }
+    double fnorm, fpara;
+    ForceSand(-height, cospsi, sinpsi, area, &fnorm, &fpara);
+    std::cout << fnorm << " " << fpara << std::endl;
+    force = fnorm * frame_normal + fpara * frame_tangent;
+  } else {
+    force = ChVector<>(0, 0, 0);
+  }
+}
+
+void RFTSystem::InteractPieceVertical(const ChVector<> &surface_position,
+                                      const ChVector<> &surface_velocity,
+                                      const ChVector<> &surface_normal,
+                                      bool is_double_sided, double area,
+                                      ChVector<> &force) {
   ChVector<> rft_plane_y = ydir_;
   ChVector<> rft_plane_x = xdir_;
   double height = dot(rft_plane_y, surface_position);

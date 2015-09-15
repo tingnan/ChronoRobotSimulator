@@ -45,10 +45,16 @@ public:
   void AddHeadDrag(RFTBody &body);
 
 private:
-  void InteractPieceVert(const chrono::ChVector<> &pos,
-                         const chrono::ChVector<> &vel,
-                         const chrono::ChVector<> &nor, bool is_double_sided,
-                         double area, chrono::ChVector<> &force);
+  void InteractPieceVertical(const chrono::ChVector<> &pos,
+                             const chrono::ChVector<> &vel,
+                             const chrono::ChVector<> &nor,
+                             bool is_double_sided, double area,
+                             chrono::ChVector<> &force);
+  void InteractPieceHorizontal(const chrono::ChVector<> &pos,
+                               const chrono::ChVector<> &vel,
+                               const chrono::ChVector<> &nor,
+                               bool is_double_sided, double area,
+                               chrono::ChVector<> &force);
   chrono::ChVector<> ydir_;
   chrono::ChVector<> xdir_;
   chrono::ChVector<> zdir_;
