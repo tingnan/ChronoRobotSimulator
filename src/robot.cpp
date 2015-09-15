@@ -90,6 +90,9 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
       body_ptr->SetIdentifier(i);
       ch_system->Add(body_ptr);
       i_robot.body_list.push_back(body_ptr.get());
+      i_robot.rft_body_list.emplace_back(body_ptr.get());
+      // Buid the RFT body
+      i_robot.rft_body_list.back().mesh = MeshRFTSquare(kLx, kW, true);
       body_container_.push_back(body_ptr);
       // The engines.
       if (i > 0) {

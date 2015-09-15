@@ -21,9 +21,9 @@ class Value;
 }
 
 struct Robot {
-
   std::vector<chrono::ChBody *> body_list;
   std::vector<chrono::ChLinkEngine *> engine_list;
+  std::vector<RFTBody> rft_body_list;
 };
 
 Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params);
