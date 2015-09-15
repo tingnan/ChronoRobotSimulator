@@ -72,9 +72,9 @@ bool RFTTestCollision(ChBody *body, const ChVector<> &pdirec, double pdist) {
   return false;
 }
 
-void DrawVector(irr::ChIrrApp *mApp, const ChVector<> &pos,
+void DrawVector(irr::ChIrrApp *ch_app, const ChVector<> &pos,
                 const ChVector<> &foc, double scale, int color) {
-  irr::video::IVideoDriver *driver = mApp->GetVideoDriver();
+  irr::video::IVideoDriver *driver = ch_app->GetVideoDriver();
   driver->setTransform(irr::video::ETS_WORLD, irr::core::matrix4());
   irr::video::SColor mcol;
   if (color == 0)
@@ -192,12 +192,12 @@ Value Interpolate2(const Scalar xbin[], size_t size_x, const Scalar ybin[],
   Scalar y_nor = (y - ybin[iy0]) / (ybin[iy1] - ybin[iy0]);
   return a00 + a10 * x_nor + a01 * y_nor + a11 * x_nor * y_nor;
 }
-}
+} // namespace
 
 std::vector<chrono::ChVector<> > RFTBody::GetTransformedNormalList() {
   std::vector<chrono::ChVector<> > output;
-  output.reserve(normals.size());
-  for (const auto &normal : normals) {
+  output.reserve(mesh.normals.size());
+  for (const auto &normal : mesh.normals) {
     output.emplace_back(chbody->TransformPointLocalToParent(normal) -
                         chbody->GetPos());
   }
@@ -206,8 +206,8 @@ std::vector<chrono::ChVector<> > RFTBody::GetTransformedNormalList() {
 
 std::vector<chrono::ChVector<> > RFTBody::GetTransformedPositionList() {
   std::vector<chrono::ChVector<> > output;
-  output.reserve(positions.size());
-  for (const auto &pos : positions) {
+  output.reserve(mesh.positions.size());
+  for (const auto &pos : mesh.positions) {
     output.emplace_back(chbody->TransformPointLocalToParent(pos));
   }
   return output;
@@ -215,8 +215,8 @@ std::vector<chrono::ChVector<> > RFTBody::GetTransformedPositionList() {
 
 std::vector<chrono::ChVector<> > RFTBody::GetTransformedVelocityList() {
   std::vector<chrono::ChVector<> > output;
-  output.reserve(positions.size());
-  for (const auto &pos : positions) {
+  output.reserve(mesh.positions.size());
+  for (const auto &pos : mesh.positions) {
     output.emplace_back(chbody->PointSpeedLocalToParent(pos));
   }
   return output;
@@ -242,20 +242,18 @@ RFTSystem::RFTSystem(irr::ChIrrApp *ch_app)
   */
 }
 
-RFTSystem::~RFTSystem() {}
-
 void RFTSystem::InteractExt(RFTBody &rbody) {
   auto position_list = rbody.GetTransformedPositionList();
   auto velocity_list = rbody.GetTransformedVelocityList();
   auto normal_list = rbody.GetTransformedNormalList();
-  const auto &area_list = rbody.areas;
-  const auto &is_double_sided = rbody.is_double_sided;
+  const auto &area_list = rbody.mesh.areas;
+  const auto &is_double_sided = rbody.mesh.is_double_sided;
   ChBody *chbody = rbody.chbody;
   // DrawVector(ch_app_, chbody->GetPos(), chbody->GetPos_dt(), 2, 1);
   if (RFTTestCollision(chbody, ydir_, 0) && chbody->GetCollide()) {
     ChVector<> force;
     ChVector<> moment;
-    const size_t nn = rbody.positions.size();
+    const size_t nn = rbody.mesh.positions.size();
     for (int i = 0; i < nn; ++i) {
       InteractPieceVert(position_list[i], velocity_list[i], normal_list[i],
                         is_double_sided[i], area_list[i], rbody.forces[i]);

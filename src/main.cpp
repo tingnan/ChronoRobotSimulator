@@ -80,9 +80,17 @@ void UsePositionControl(Robot *robot) {
   auto &engine_list = robot->engine_list;
   for (size_t i = 0; i < engine_list.size(); ++i) {
     ChSharedPtr<ChFunction_Sine> engine_funct(new ChFunction_Sine(
-        double(i) * 2 / engine_list.size() * CH_C_2PI, 0.2, 0.4));
+        double(i) * 2 / engine_list.size() * CH_C_2PI, 0.2, 0.5));
     engine_list[i]->Set_eng_mode(ChLinkEngine::ENG_MODE_ROTATION);
     engine_list[i]->Set_rot_funct(engine_funct);
+  }
+}
+
+std::vector<RFTBody> BuildRFTBody(Robot *robot) {
+  auto &body_list = robot->body_list;
+  std::vector<RFTBody> rft_body_list;
+  for (size_t i = 0; i < body_list.size(); ++i) {
+    rft_body_list.emplace_back(body_list[i]);
   }
 }
 
@@ -95,7 +103,7 @@ int main(int argc, char *argv[]) {
   ch_system.SetIterLCPmaxItersStab(30);
   // ch_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
   ch_system.SetTol(1e-8);
-  ch_system.Set_G_acc(ChVector<>(0, 0, 0));
+  ch_system.Set_G_acc(ChVector<>(0, -9.81, 0));
   ChBroadPhaseCallbackNew *mcallback = new ChBroadPhaseCallbackNew;
   ch_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
 
@@ -124,9 +132,9 @@ int main(int argc, char *argv[]) {
   // std::vector<RFTBody> &body_list = robot_builder.getRFTBodyList();
 
   // set io
-  std::ofstream mov_file("snake.mov");
-  std::ofstream jnt_file("snake.jnt");
-  std::ofstream rft_file("snake.rft");
+  std::ofstream mov_file("mov.dat");
+  std::ofstream jnt_file("jnt.dat");
+  std::ofstream rft_file("rft.dat");
 
   // begin simulation
 
@@ -137,6 +145,7 @@ int main(int argc, char *argv[]) {
   ch_app.SetVideoframeSaveInterval(save_step);
 
   // Assemble the robot
+
   while (ch_system.GetChTime() < 1.0) {
     ch_app.DoStep();
     std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
@@ -144,7 +153,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Switch to controller
-  // UseController(&ch_system, &i_robot);
+  UseController(&ch_system, &i_robot);
 
   while (ch_app.GetDevice()->run()) {
     // the core simulation part
@@ -176,10 +185,12 @@ int main(int argc, char *argv[]) {
           video::SColor(255, 80, 100, 100), true);
       ch_app.GetVideoDriver()->endScene();
 
-      std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
-                << std::endl;
-      SerializeBodies(i_robot.body_list, mov_file);
-      SerializeEngines(i_robot.engine_list, jnt_file);
+      if (!ch_app.GetPaused()) {
+        std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
+                  << std::endl;
+        SerializeBodies(i_robot.body_list, mov_file);
+        SerializeEngines(i_robot.engine_list, jnt_file);
+      }
       count = 0;
       continue;
     }

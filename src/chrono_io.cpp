@@ -21,7 +21,7 @@ void SerializeBodies(std::vector<ChBody *> &body_list,
     auto cur_body = body_list[i];
     mov_file << cur_body->GetIdentifier() << " ";
     mov_file << cur_body->GetPos() << " " << cur_body->GetPos_dt() << " ";
-    ChQuaternion<> rotquat = cur_body->GetRot();
+    auto rotquat = cur_body->GetRot();
     // needs to conjugate to satisfy the matlab convention
     rotquat.Conjugate();
     mov_file << rotquat << " ";
@@ -37,8 +37,8 @@ void SerializeEngines(std::vector<chrono::ChLinkEngine *> &engine_list,
   jnt_file << std::scientific;
   for (size_t i = 0; i < engine_list.size(); ++i) {
     jnt_file << engine_list[i]->GetIdentifier() << " ";
-    ChVector<> localforce = engine_list[i]->Get_react_force();
-    double localtorque = engine_list[i]->Get_mot_torque();
+    auto localforce = engine_list[i]->Get_react_force();
+    auto localtorque = engine_list[i]->Get_mot_torque();
     jnt_file << localforce << " " << localtorque << "\n";
   }
   jnt_file.flush();
