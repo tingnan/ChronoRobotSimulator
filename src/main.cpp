@@ -58,10 +58,10 @@ public:
   };
 };
 
-void ApplyRFTForce(std::vector<RFTBody> &body_list, RFTSystem &rsystem) {
-  const size_t nnodes = body_list.size();
-  for (unsigned int i = 0; i < nnodes; ++i) {
-    rsystem.InteractExt(body_list[i]);
+void ApplyRFTForce(std::vector<RFTBody> &rft_body_list, RFTSystem &rsystem) {
+  const size_t kNumBodies = rft_body_list.size();
+  for (unsigned int i = 0; i < kNumBodies; ++i) {
+    rsystem.InteractExt(rft_body_list[i]);
   }
 }
 
@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
   ch_system.SetIterLCPmaxItersStab(30);
   // ch_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
   ch_system.SetTol(1e-8);
-  ch_system.Set_G_acc(ChVector<>(0, -9.81, 0));
+  ch_system.Set_G_acc(ChVector<>(0, -0.0 * 9.81, 0));
   ChBroadPhaseCallbackNew *mcallback = new ChBroadPhaseCallbackNew;
   ch_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
 
@@ -169,15 +169,10 @@ int main(int argc, char *argv[]) {
 
     // io control
     if (count == save_step - 1) {
-
       ch_app.GetVideoDriver()->beginScene(true, true,
                                           video::SColor(255, 140, 161, 192));
       ch_app.DrawAll();
-
-      if (ch_system.GetChTime() >= 1.0) {
-        // ApplyRFTForce(body_list, rsystem);
-      }
-
+      ApplyRFTForce(i_robot.rft_body_list, rsystem);
       // draw a grid to help visualizattion
       ChIrrTools::drawGrid(
           ch_app.GetVideoDriver(), 5, 5, 100, 100,
@@ -195,10 +190,7 @@ int main(int argc, char *argv[]) {
       continue;
     }
 
-    if (ch_system.GetChTime() >= 1.0) {
-      // ApplyRFTForce(body_list, rsystem);
-    }
-
+    ApplyRFTForce(i_robot.rft_body_list, rsystem);
     if (!ch_app.GetPaused())
       ++count;
   }

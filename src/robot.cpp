@@ -68,8 +68,8 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
 
   // Build a snake body.
   {
-    ChSharedPtr<ChBodyEasyBox> ground(
-        new ChBodyEasyBox(500, 1.0, 500, 1.0, kEnableCollision, kEnableVisual));
+    ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
+        500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
     ground->SetBodyFixed(true);
     ground->SetPos(ChVector<>(0, -0.6, 0));
     ground->SetIdentifier(-1);
@@ -80,7 +80,7 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
     const double kL = 1.10;
     const double kW = 0.05;
     const double kLx = kL / kNumSegments;
-    ChVector<> center_pos(0, 0, 0.25);
+    ChVector<> center_pos(-kL * 0.8, -kW, 0);
     std::vector<ChSharedBodyPtr> body_container_;
     for (size_t i = 0; i < kNumSegments; ++i) {
 
@@ -93,6 +93,8 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
       i_robot.rft_body_list.emplace_back(body_ptr.get());
       // Buid the RFT body
       i_robot.rft_body_list.back().mesh = MeshRFTSquare(kLx, kW, true);
+      i_robot.rft_body_list.back().forces.resize(
+          i_robot.rft_body_list.back().mesh.positions.size());
       body_container_.push_back(body_ptr);
       // The engines.
       if (i > 0) {
@@ -106,11 +108,11 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
         ch_system->Add(joint_ptr);
       }
 
-      if (false) {
+      if (true) {
         // The joints that maintain the snake in plane.
         ChSharedPtr<ChLinkLockPlanePlane> inplanelink(new ChLinkLockPlanePlane);
         inplanelink->Initialize(
-            ground, body_container_[i],
+            ground, body_ptr,
             ChCoordsys<>(ChVector<>(), Q_from_AngX(CH_C_PI_2)));
         ch_system->Add(inplanelink);
       }

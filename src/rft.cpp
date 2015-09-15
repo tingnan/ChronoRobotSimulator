@@ -91,7 +91,7 @@ inline double hevistep(double x) { return x > 0 ? 1 : (x < 0 ? -1 : 0); }
 void ForceSand(double deltah, double cospsi, double sinpsi, double area,
                double *fnorm, double *fpara) {
   // prefac = k * rho * g * z * A * reduction_factor
-  double prefac = 2.5 * 2470 * 9.81 * deltah * area * 1e-3;
+  double prefac = 2.5 * 2470 * 9.81 * deltah * area * 2.5e-2;
   *fpara = prefac * sinpsi * 1;
   const double tan2gamm0 = 0.060330932472924;
   *fnorm = prefac * cospsi * (1 + 1.8 / sqrt(tan2gamm0 + cospsi * cospsi));
@@ -256,14 +256,16 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
     ChVector<> moment;
     const size_t nn = rbody.mesh.positions.size();
     for (int i = 0; i < nn; ++i) {
-      InteractPieceVertical(position_list[i], velocity_list[i], normal_list[i],
-                            is_double_sided[i], area_list[i], rbody.forces[i]);
+      InteractPieceHorizontal(position_list[i], velocity_list[i],
+                              normal_list[i], is_double_sided[i], area_list[i],
+                              rbody.forces[i]);
       // DrawVector(ch_app_, position_list[i], rbody.forces[i], 50, 0);
       force += rbody.forces[i];
       ChVector<> tmp;
       tmp.Cross(position_list[i] - chbody->GetPos(), rbody.forces[i]);
       moment += tmp;
     }
+
     DrawVector(ch_app_, chbody->GetPos(), force, 1, 0);
     chbody->Empty_forces_accumulators();
     chbody->Accumulate_force(force, chbody->GetPos(), false);
@@ -282,7 +284,7 @@ RFTSystem::InteractPieceHorizontal(const chrono::ChVector<> &surface_position,
   // If the normal and velocity is not in the horizontal plane
   if (abs(surface_normal.y) > kRoundOffError ||
       abs(surface_velocity.y) > kRoundOffError) {
-    force = ChVector<>(0, 0, 0);
+    force = ChVector<>(0.0, 0.0, 0.0);
     return;
   }
   if (height < 0) {
@@ -304,19 +306,21 @@ RFTSystem::InteractPieceHorizontal(const chrono::ChVector<> &surface_position,
     if (cospsi > 0) {
       frame_normal = -frame_normal;
     }
+    cospsi = fabs(cospsi);
+
     ChVector<> frame_tangent;
-    frame_tangent.x = frame_normal.z;
-    frame_tangent.z = -frame_normal.x;
+    frame_tangent.x = -frame_normal.z;
+    frame_tangent.z = frame_normal.x;
     double sinpsi = dot(frame_tangent, v_direction);
     if (sinpsi > 0) {
       frame_tangent = -frame_tangent;
     }
+    sinpsi = fabs(sinpsi);
     double fnorm, fpara;
     ForceSand(-height, cospsi, sinpsi, area, &fnorm, &fpara);
-    std::cout << fnorm << " " << fpara << std::endl;
     force = fnorm * frame_normal + fpara * frame_tangent;
   } else {
-    force = ChVector<>(0, 0, 0);
+    force = ChVector<>(0.0, 0.0, 0.0);
   }
 }
 
