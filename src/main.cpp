@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
   ch_system.SetIterLCPmaxItersStab(30);
   // ch_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
   ch_system.SetTol(1e-8);
-  ch_system.Set_G_acc(ChVector<>(0, -0.0 * 9.81, 0));
+  ch_system.Set_G_acc(ChVector<>(0, -9.81, 0));
   ChBroadPhaseCallbackNew *mcallback = new ChBroadPhaseCallbackNew;
   ch_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
 
@@ -153,10 +153,10 @@ int main(int argc, char *argv[]) {
   // Switch to controller
   UseController(&ch_system, &i_robot);
 
-  ch_app.SetVideoframeSave(true);
+  ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 100.0) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 10.0) {
     // the core simulation part
 
     ch_app.DoStep();

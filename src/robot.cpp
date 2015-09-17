@@ -66,8 +66,37 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
   const bool kEnableCollision = true;
   const bool kEnableVisual = true;
 
+  if (true) {
+    ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
+        500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
+    ground->SetBodyFixed(true);
+    ground->SetPos(ChVector<>(0, -0.6, 0));
+    ground->SetIdentifier(-1);
+    ground->GetMaterialSurface()->SetFriction(0.1);
+    ch_system->Add(ground);
+
+    const double kL = 0.20;
+    const double kW = 0.02;
+    ChSharedPtr<ChBodyEasyBox> link_1(
+        new ChBodyEasyBox(kL, kW, kW, 1.0, kEnableCollision, kEnableVisual));
+    link_1->SetPos(ChVector<>(kL * 0.5, 0, 0));
+    ch_system->Add(link_1);
+
+    ChSharedPtr<ChLinkLockRevolute> joint_1(new ChLinkLockRevolute);
+    joint_1->Initialize(link_1, ground, ChCoordsys<>(VNULL));
+    ch_system->Add(joint_1);
+
+    ChSharedPtr<ChBodyEasyBox> link_2(
+        new ChBodyEasyBox(kL, kW, kW, 1.0, kEnableCollision, kEnableVisual));
+    link_2->SetPos(ChVector<>(kL * 1.5, 0, 0));
+    ch_system->Add(link_2);
+    ChSharedPtr<ChLinkLockRevolute> joint_2(new ChLinkLockRevolute);
+    joint_2->Initialize(link_2, link_1, ChCoordsys<>(ChVector<>(kL, 0, 0)));
+    ch_system->Add(joint_2);
+  }
+
   // Build a snake body.
-  {
+  if (false) {
     ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
         500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
     ground->SetBodyFixed(true);
@@ -139,7 +168,7 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
   }
 
   // Build a set of random collidables.
-  {
+  if (false) {
     const size_t kGridSize = 5;
     const double kGridDist = 0.3;
     const double kHeight = 0.2;
