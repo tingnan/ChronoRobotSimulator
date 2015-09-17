@@ -114,8 +114,8 @@ int main(int argc, char *argv[]) {
   ChIrrWizard::add_typical_Logo(ch_app.GetDevice());
   ChIrrWizard::add_typical_Sky(ch_app.GetDevice());
   ChIrrWizard::add_typical_Lights(ch_app.GetDevice());
-  ChIrrWizard::add_typical_Camera(ch_app.GetDevice(), core::vector3df(0, 5, 0),
-                                  core::vector3df(1, 0, 0));
+  ChIrrWizard::add_typical_Camera(ch_app.GetDevice(), core::vector3df(0, 2, 0),
+                                  core::vector3df(0.1, 0, 0));
   scene::ICameraSceneNode *cur_cam =
       ch_app.GetSceneManager()->getActiveCamera();
   // cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
@@ -139,10 +139,8 @@ int main(int argc, char *argv[]) {
   // begin simulation
 
   int count = 0;
-  int save_step = 1e-2 / ch_app.GetTimestep();
+  int save_step = 4e-2 / ch_app.GetTimestep();
   // screen capture?
-  ch_app.SetVideoframeSave(false);
-  ch_app.SetVideoframeSaveInterval(save_step);
 
   // Assemble the robot
 
@@ -155,7 +153,10 @@ int main(int argc, char *argv[]) {
   // Switch to controller
   UseController(&ch_system, &i_robot);
 
-  while (ch_app.GetDevice()->run()) {
+  ch_app.SetVideoframeSave(true);
+  ch_app.SetVideoframeSaveInterval(save_step);
+
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 100.0) {
     // the core simulation part
 
     ch_app.DoStep();

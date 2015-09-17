@@ -266,7 +266,7 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
       moment += tmp;
     }
 
-    DrawVector(ch_app_, chbody->GetPos(), force, 1, 0);
+    // DrawVector(ch_app_, chbody->GetPos(), force, 1, 0);
     chbody->Empty_forces_accumulators();
     chbody->Accumulate_force(force, chbody->GetPos(), false);
     chbody->Accumulate_torque(moment, false);
@@ -282,11 +282,13 @@ RFTSystem::InteractPieceHorizontal(const chrono::ChVector<> &surface_position,
   ChVector<> rft_plane_y = ydir_;
   double height = dot(rft_plane_y, surface_position);
   // If the normal and velocity is not in the horizontal plane
-  if (abs(surface_normal.y) > kRoundOffError ||
-      abs(surface_velocity.y) > kRoundOffError) {
+  /*
+  if (fabs(surface_normal.y) > kRoundOffError ||
+      fabs(surface_velocity.y) > kRoundOffError) {
     force = ChVector<>(0.0, 0.0, 0.0);
     return;
   }
+  */
   if (height < 0) {
     if (dot(surface_normal, surface_velocity) < -kRoundOffError &&
         !is_double_sided) {
