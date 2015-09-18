@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
   ch_system.SetIterLCPmaxItersStab(30);
   // ch_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
   ch_system.SetTol(1e-8);
-  ch_system.Set_G_acc(ChVector<>(0, -9.81, 0));
+  ch_system.Set_G_acc(ChVector<>(0, 0, 9.81));
   ChBroadPhaseCallbackNew *mcallback = new ChBroadPhaseCallbackNew;
   ch_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
 
@@ -114,8 +114,9 @@ int main(int argc, char *argv[]) {
   ChIrrWizard::add_typical_Logo(ch_app.GetDevice());
   ChIrrWizard::add_typical_Sky(ch_app.GetDevice());
   ChIrrWizard::add_typical_Lights(ch_app.GetDevice());
-  ChIrrWizard::add_typical_Camera(ch_app.GetDevice(), core::vector3df(0, 2, 0),
-                                  core::vector3df(0.1, 0, 0));
+  ChIrrWizard::add_typical_Camera(ch_app.GetDevice(),
+                                  core::vector3df(0.1, 2, 0.1),
+                                  core::vector3df(0, 0, 0));
   scene::ICameraSceneNode *cur_cam =
       ch_app.GetSceneManager()->getActiveCamera();
   // cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
@@ -143,24 +144,25 @@ int main(int argc, char *argv[]) {
   // screen capture?
 
   // Assemble the robot
-
+  /*
   while (ch_system.GetChTime() < 1.0) {
     ch_app.DoStep();
     std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
               << std::endl;
   }
+  */
 
   // Switch to controller
-  UseController(&ch_system, &i_robot);
+  // UseController(&ch_system, &i_robot);
 
   ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 10.0) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 100.0) {
     // the core simulation part
 
     ch_app.DoStep();
-
+    ComputeJacobian(&i_robot);
     // ChVector<> cam_pos = robot_builder.GetRobotCoMPosition();
     // scene::ICameraSceneNode* cur_cam =
     // ch_app.GetSceneManager()->getActiveCamera();

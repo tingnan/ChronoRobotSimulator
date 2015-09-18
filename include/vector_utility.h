@@ -26,6 +26,20 @@ std::ostream &operator<<(std::ostream &stream,
 }
 
 template <class T>
+std::ostream &operator<<(std::ostream &stream,
+                         const chrono::ChVectorDynamic<T> &tmp) {
+  const size_t kRows = tmp.GetRows();
+  const size_t kCols = tmp.GetColumns();
+  for (size_t i = 0; i < kRows; ++i) {
+    for (size_t j = 0; j < kCols; ++j) {
+      stream << tmp(i, j) << " ";
+    }
+    stream << "\n";
+  }
+  return stream;
+}
+
+template <class T>
 std::ostream &operator<<(std::ostream &stream, const std::vector<T> &myvec) {
   typename std::vector<T>::const_iterator iter1 = myvec.begin();
   for (; iter1 != myvec.end(); ++iter1) {
