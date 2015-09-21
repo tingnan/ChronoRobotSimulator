@@ -3,7 +3,7 @@
 #include <array>
 #include <iterator>
 
-#include <unit_IRRLICHT/ChIrrApp.h>
+#include <chrono_irrlicht/ChIrrApp.h>
 #include <physics/ChBody.h>
 
 #include "include/rft.h"

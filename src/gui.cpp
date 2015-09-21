@@ -1,4 +1,4 @@
-#include <unit_IRRLICHT/ChIrrApp.h>
+#include <chrono_irrlicht/ChIrrApp.h>
 
 #include "include/gui.h"
 #include "include/robot.h"

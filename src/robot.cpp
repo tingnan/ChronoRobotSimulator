@@ -4,13 +4,13 @@
 
 #include <physics/ChSystem.h>
 #include <physics/ChBodyEasy.h>
-#include <unit_IRRLICHT/ChIrrApp.h>
+#include <chrono_irrlicht/ChIrrApp.h>
 
 #include "json/json.h"
 #include "include/vector_utility.h"
 #include "include/robot.h"
 #include "include/rft.h"
-#include "include/chfunction_controller.h"
+#include "include/controller.h"
 
 using namespace chrono;
 
@@ -85,10 +85,11 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
     i_robot.body_list.push_back(link_1.get());
     i_robot.body_length_list.push_back(kL);
 
-    ChSharedPtr<ChLinkLockRevolute> joint_1(new ChLinkLockRevolute);
+    ChSharedPtr<ChLinkEngine> joint_1(new ChLinkEngine);
     joint_1->Initialize(link_1, ground,
                         ChCoordsys<>(ChVector<>(), Q_from_AngX(CH_C_PI_2)));
     ch_system->Add(joint_1);
+    i_robot.engine_list.push_back(joint_1.get());
 
     ChSharedPtr<ChBodyEasyBox> link_2(new ChBodyEasyBox(
         kL, kW, kW, kDensity, kEnableCollision, kEnableVisual));
@@ -97,10 +98,11 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
     i_robot.body_list.push_back(link_2.get());
     i_robot.body_length_list.push_back(kL);
 
-    ChSharedPtr<ChLinkLockRevolute> joint_2(new ChLinkLockRevolute);
+    ChSharedPtr<ChLinkEngine> joint_2(new ChLinkEngine);
     joint_2->Initialize(link_2, link_1, ChCoordsys<>(ChVector<>(kL, 0, 0),
                                                      Q_from_AngX(CH_C_PI_2)));
     ch_system->Add(joint_2);
+    i_robot.engine_list.push_back(joint_2.get());
 
     if (true) {
       ChSharedPtr<ChBodyEasyBox> link_1(
@@ -233,7 +235,6 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
   return i_robot;
 }
 
-std::ofstream angle_file("angle.txt");
 chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
   const size_t kNumSegs = robot->body_list.size();
   chrono::ChVectorDynamic<> theta(kNumSegs);
@@ -249,10 +250,6 @@ chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
     }
     theta(i) = angle;
     cum_theta(i) = angle;
-    // angle_file << angle << " ";
-  }
-  for (size_t j = 1; j < kNumSegs; ++j) {
-    cum_theta(j) = cum_theta(j - 1) + cum_theta(j);
   }
   chrono::ChVectorDynamic<> sin_cum_theta(kNumSegs);
   chrono::ChVectorDynamic<> cos_cum_theta(kNumSegs);
@@ -283,24 +280,6 @@ chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
   }
 
   jacobian.MatrTranspose();
-  ChVectorDynamic<> gravity_force(3 * kNumSegs);
-  for (size_t i = 0; i < kNumSegs; ++i) {
-    gravity_force(3 *i + 0) = 0;
-    gravity_force(3 *i + 1) = robot->body_list[i]->GetMass() * 9.8;
-    gravity_force(3 *i + 2) = 0;
-  }
-
-  auto torques = jacobian * gravity_force;
-
-  // const size_t kRows = jacobian.GetRows();
-  // const size_t kCols = jacobian.GetColumns();
-  // for (size_t i = 0; i < kRows; ++i) {
-  //   for (size_t j = 0; j < kCols; ++j) {
-  //     std::cout << jacobian(i, j) << " ";
-  //   }
-  //   std::cout << "\n";
-  // }
-  // std::cout << "\n";
 
   return jacobian;
 }

@@ -1,11 +1,11 @@
-#include <unit_IRRLICHT/ChIrrApp.h>
+#include <chrono_irrlicht/ChIrrApp.h>
 #include <motion_functions/ChFunction_Sine.h>
 
 #include "json/json.h"
 #include "include/rft.h"
 #include "include/gui.h"
 #include "include/robot.h"
-#include "include/chfunction_controller.h"
+#include "include/controller.h"
 #include "include/chrono_io.h"
 
 namespace {
@@ -65,14 +65,12 @@ void ApplyRFTForce(std::vector<RFTBody> &rft_body_list, RFTSystem &rsystem) {
   }
 }
 
-void UseController(ChSystem *ch_system, Robot *robot) {
-  auto &engine_list = robot->engine_list;
-  auto &body_list = robot->body_list;
-  for (size_t i = 0; i < engine_list.size(); ++i) {
-    ChSharedPtr<ChFunctionController> engine_funct(new ChFunctionController(
-        ch_system, engine_list[i], body_list, engine_list));
-    engine_list[i]->Set_eng_mode(ChLinkEngine::ENG_MODE_TORQUE);
-    engine_list[i]->Set_tor_funct(engine_funct);
+void UseController(Controller *controller) {
+  for (size_t i = 0; i < controller->GetNumEngines(); ++i) {
+    ChSharedPtr<ChFunctionController> engine_funct(
+        new ChFunctionController(i, controller));
+    controller->GetEngine(i)->Set_eng_mode(ChLinkEngine::ENG_MODE_TORQUE);
+    controller->GetEngine(i)->Set_tor_funct(engine_funct);
   }
 }
 
@@ -153,16 +151,17 @@ int main(int argc, char *argv[]) {
   */
 
   // Switch to controller
-  // UseController(&ch_system, &i_robot);
+  Controller controller(&ch_system, &i_robot);
+  UseController(&controller);
 
   ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
 
   while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 100.0) {
     // the core simulation part
-
+    controller.Step(1e-2);
     ch_app.DoStep();
-    ComputeJacobian(&i_robot);
+
     // ChVector<> cam_pos = robot_builder.GetRobotCoMPosition();
     // scene::ICameraSceneNode* cur_cam =
     // ch_app.GetSceneManager()->getActiveCamera();
