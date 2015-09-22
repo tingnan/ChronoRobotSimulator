@@ -140,15 +140,21 @@ void Controller::Step(double dt) {
   ch_system_->GetContactContainer()->ReportAllContacts2(contact_reporter_);
 
   ChVectorDynamic<> ext_force(3 * kNumSegs);
+  torques_ext_.Reset(kNumSegs);
   ChVector<> desired_direction = ComputeAverageOrientation();
   for (size_t i = 0; i < kNumSegs; ++i) {
-    double cos_theta = desired_direction.Dot(contact_force_list_[i]);
-    double weight = -0.5 * (1 - cos_theta);
+    double force_mag = contact_force_list_[i].Length();
+    double cos_theta = 0;
+    if (force_mag > 1e-4) {
+      cos_theta = desired_direction.Dot(contact_force_list_[i] / force_mag);
+    }
+    double weight = cos_theta;
     ext_force(3 *i + 0) = contact_force_list_[i](0) * weight;
     ext_force(3 *i + 1) = contact_force_list_[i](2) * weight;
     // Torque
     ext_force(3 *i + 2) = 0;
   }
+  torques_ext_ = jacobian * ext_force;
 
   /*
   auto gravity = ch_system_->Get_G_acc().Length();
@@ -160,7 +166,7 @@ void Controller::Step(double dt) {
     gravity_force(3 *i + 2) = 0;
   }
   */
-  torques_ext_ = jacobian * ext_force;
+  // torques_ext_ = jacobian * ext_force;
   /*
   for (size_t i = 0; i < torques_ext_.GetRows(); ++i) {
     std::cout << torques_ext_(i) << " ";

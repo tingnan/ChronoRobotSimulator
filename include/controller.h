@@ -50,7 +50,8 @@ public:
   int Get_Type() { return 9527; }
 
   double Get_y(double curr_t) {
-    double torque = ComputePDTorque(curr_t);
+    double torque =
+        ComputePDTorque(curr_t) - controller_->GetExtTorque(index_, curr_t);
     torque = std::max(std::min(torque_limit, torque), -torque_limit);
     return torque;
   }
@@ -60,16 +61,14 @@ public:
     return 0;
   }
 
-  double p_gain = 1.000;
+  double p_gain = 0.300;
   double d_gain = 0.000;
   double torque_limit = 0.5;
 
 protected:
   // The low level PID controller in motor.
   double ComputePDTorque(double t) {
-    double torque_ext = controller_->GetExtTorque(index_, t);
     double amp_mod = 1.0;
-    std::cout << index_ << "  " << amp_mod << std::endl;
     double desired_angle = amp_mod * controller_->GetPatternAngle(index_, t);
     double desired_angular_speed =
         amp_mod * controller_->GetPatternAngularSpeed(index_, t);
