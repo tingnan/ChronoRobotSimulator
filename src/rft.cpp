@@ -91,7 +91,7 @@ inline double hevistep(double x) { return x > 0 ? 1 : (x < 0 ? -1 : 0); }
 void ForceSand(double deltah, double cospsi, double sinpsi, double area,
                double *fnorm, double *fpara) {
   // prefac = k * rho * g * z * A * reduction_factor
-  double prefac = 2.5 * 2470 * 9.81 * deltah * area * 2.5e-2;
+  double prefac = 2.5 * 2470 * 9.81 * deltah * area * 5.0e-2;
   *fpara = prefac * sinpsi * 1;
   const double tan2gamm0 = 0.060330932472924;
   *fnorm = prefac * cospsi * (1 + 1.8 / sqrt(tan2gamm0 + cospsi * cospsi));
@@ -265,8 +265,7 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
       tmp.Cross(position_list[i] - chbody->GetPos(), rbody.forces[i]);
       moment += tmp;
     }
-
-    // DrawVector(ch_app_, chbody->GetPos(), force, 1, 0);
+    DrawVector(ch_app_, chbody->GetPos(), force, 1, 0);
     chbody->Empty_forces_accumulators();
     chbody->Accumulate_force(force, chbody->GetPos(), false);
     chbody->Accumulate_torque(moment, false);

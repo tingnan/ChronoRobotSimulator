@@ -28,9 +28,6 @@ struct Robot {
   std::vector<RFTBody> rft_body_list;
 };
 
-// Only works for 2D snake robot
-chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot);
-
 Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params);
 
 #endif // INCLUDE_ROBOT_H_

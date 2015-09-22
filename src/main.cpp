@@ -65,25 +65,6 @@ void ApplyRFTForce(std::vector<RFTBody> &rft_body_list, RFTSystem &rsystem) {
   }
 }
 
-void UseController(Controller *controller) {
-  for (size_t i = 0; i < controller->GetNumEngines(); ++i) {
-    ChSharedPtr<ChFunctionController> engine_funct(
-        new ChFunctionController(i, controller));
-    controller->GetEngine(i)->Set_eng_mode(ChLinkEngine::ENG_MODE_TORQUE);
-    controller->GetEngine(i)->Set_tor_funct(engine_funct);
-  }
-}
-
-void UsePositionControl(Robot *robot) {
-  auto &engine_list = robot->engine_list;
-  for (size_t i = 0; i < engine_list.size(); ++i) {
-    ChSharedPtr<ChFunction_Sine> engine_funct(new ChFunction_Sine(
-        double(i) * 2 / engine_list.size() * CH_C_2PI, 0.2, 0.5));
-    engine_list[i]->Set_eng_mode(ChLinkEngine::ENG_MODE_ROTATION);
-    engine_list[i]->Set_rot_funct(engine_funct);
-  }
-}
-
 std::vector<RFTBody> BuildRFTBody(Robot *robot) {
   auto &body_list = robot->body_list;
   std::vector<RFTBody> rft_body_list;
@@ -101,7 +82,7 @@ int main(int argc, char *argv[]) {
   ch_system.SetIterLCPmaxItersStab(30);
   // ch_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
   ch_system.SetTol(1e-8);
-  ch_system.Set_G_acc(ChVector<>(0, 0, 9.81));
+  ch_system.Set_G_acc(ChVector<>(0, 0, 0));
   ChBroadPhaseCallbackNew *mcallback = new ChBroadPhaseCallbackNew;
   ch_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
 
@@ -113,8 +94,8 @@ int main(int argc, char *argv[]) {
   ChIrrWizard::add_typical_Sky(ch_app.GetDevice());
   ChIrrWizard::add_typical_Lights(ch_app.GetDevice());
   ChIrrWizard::add_typical_Camera(ch_app.GetDevice(),
-                                  core::vector3df(0.1, 2, 0.1),
-                                  core::vector3df(0, 0, 0));
+                                  core::vector3df(0.0, 2, 0),
+                                  core::vector3df(0.1, 0, 0));
   scene::ICameraSceneNode *cur_cam =
       ch_app.GetSceneManager()->getActiveCamera();
   // cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
@@ -138,17 +119,16 @@ int main(int argc, char *argv[]) {
   // begin simulation
 
   int count = 0;
-  int save_step = 4e-2 / ch_app.GetTimestep();
+  int save_step = 1e-2 / ch_app.GetTimestep();
   // screen capture?
 
   // Assemble the robot
-  /*
+
   while (ch_system.GetChTime() < 1.0) {
     ch_app.DoStep();
     std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
               << std::endl;
   }
-  */
 
   // Switch to controller
   Controller controller(&ch_system, &i_robot);
@@ -159,7 +139,7 @@ int main(int argc, char *argv[]) {
 
   while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 100.0) {
     // the core simulation part
-    controller.Step(1e-2);
+    controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();
 
     // ChVector<> cam_pos = robot_builder.GetRobotCoMPosition();

@@ -67,7 +67,7 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
   const bool kEnableCollision = true;
   const bool kEnableVisual = true;
 
-  if (true) {
+  if (false) {
     ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
         500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
     ground->SetBodyFixed(true);
@@ -129,20 +129,20 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
   }
 
   // Build a snake body.
-  if (false) {
+  if (true) {
     ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
         500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
     ground->SetBodyFixed(true);
-    ground->SetPos(ChVector<>(0, -0.6, 0));
+    ground->SetPos(ChVector<>(0, -0.5, 0));
     ground->SetIdentifier(-1);
-    ground->GetMaterialSurface()->SetFriction(0.1);
+    ground->GetMaterialSurface()->SetFriction(0.2);
     ch_system->Add(ground);
     // the Snake params
     const size_t kNumSegments = 25;
     const double kL = 1.10;
     const double kW = 0.05;
     const double kLx = kL / kNumSegments;
-    ChVector<> center_pos(-kL * 0.8, -kW, 0);
+    ChVector<> center_pos(-kL * 0.5, -kW * 0.5, 0);
     std::vector<ChSharedBodyPtr> body_container_;
     for (size_t i = 0; i < kNumSegments; ++i) {
       ChSharedBodyPtr body_ptr;
@@ -173,7 +173,7 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
         joint_ptr->Initialize(body_container_[i], body_container_[i - 1],
                               ChCoordsys<>(position, orientation));
         i_robot.engine_list.push_back(joint_ptr.get());
-        joint_ptr->SetIdentifier(i - 1);
+        joint_ptr->SetIdentifier(i);
         ch_system->Add(joint_ptr);
       }
 
@@ -203,13 +203,13 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
   }
 
   // Build a set of random collidables.
-  if (false) {
+  if (true) {
     const size_t kGridSize = 5;
     const double kGridDist = 0.3;
     const double kHeight = 0.2;
     const double kSigma = 0.1;
 
-    std::mt19937 generator(time(0));
+    std::mt19937 generator(0.1);
     std::normal_distribution<double> normal_dist_radius(0.0, kSigma);
 
     for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {
@@ -233,53 +233,4 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
   ch_app->AssetUpdateAll();
 
   return i_robot;
-}
-
-chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
-  const size_t kNumSegs = robot->body_list.size();
-  chrono::ChVectorDynamic<> theta(kNumSegs);
-  chrono::ChVectorDynamic<> cum_theta(kNumSegs);
-  for (size_t i = 0; i < kNumSegs; ++i) {
-    auto body_ptr = robot->body_list[i];
-    auto rot_quoternion = body_ptr->GetRot();
-    double angle;
-    ChVector<> axis;
-    rot_quoternion.Q_to_AngAxis(angle, axis);
-    if (axis(2) < 0) {
-      angle = -angle;
-    }
-    theta(i) = angle;
-    cum_theta(i) = angle;
-  }
-  chrono::ChVectorDynamic<> sin_cum_theta(kNumSegs);
-  chrono::ChVectorDynamic<> cos_cum_theta(kNumSegs);
-  for (size_t j = 0; j < kNumSegs; ++j) {
-    sin_cum_theta(j) = sin(cum_theta(j));
-    cos_cum_theta(j) = cos(cum_theta(j));
-  }
-
-  // Now compute the jacobian
-  chrono::ChMatrixDynamic<> jacobian(3 * kNumSegs, kNumSegs);
-  // compute the 3 row
-  for (size_t i = 0; i < kNumSegs; ++i) {
-    // Fill the column (partial x / partial theta_j)
-    for (int j = i; j >= 0; --j) {
-      double l = robot->body_length_list[j];
-      if (j == i) {
-        // the jth link is the end effector
-        jacobian(3 * i + 0, j) = -0.5 * l * sin_cum_theta(j);
-        jacobian(3 * i + 1, j) = 0.5 * l * cos_cum_theta(j);
-      } else {
-        jacobian(3 * i + 0, j) =
-            -l * sin_cum_theta(j) + jacobian(3 * i + 0, j + 1);
-        jacobian(3 * i + 1, j) =
-            l * cos_cum_theta(j) + jacobian(3 * i + 1, j + 1);
-      }
-      jacobian(3 * i + 2, j) = 1;
-    }
-  }
-
-  jacobian.MatrTranspose();
-
-  return jacobian;
 }
