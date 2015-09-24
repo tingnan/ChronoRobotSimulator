@@ -51,7 +51,7 @@ public:
                      ) {
     int idA = mmodelA->GetPhysicsItem()->GetIdentifier();
     int idB = mmodelB->GetPhysicsItem()->GetIdentifier();
-    if ((idA == -1 && idB != -1) || (idB == -1 && idA != -1))
+    if (idA == -1 || idB == -1 || idA == -2 || idB == -2)
       return true;
     else
       return false;
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
   ch_system.SetIterLCPmaxItersStab(30);
   // ch_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
   ch_system.SetTol(1e-8);
-  ch_system.Set_G_acc(ChVector<>(0, 0, 0));
+  ch_system.Set_G_acc(ChVector<>(0, -0 * 9.81, 0));
   ChBroadPhaseCallbackNew *mcallback = new ChBroadPhaseCallbackNew;
   ch_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
 
@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
   // begin simulation
 
   int count = 0;
-  int save_step = 1e-2 / ch_app.GetTimestep();
+  int save_step = 4e-2 / ch_app.GetTimestep();
   // screen capture?
 
   // Assemble the robot

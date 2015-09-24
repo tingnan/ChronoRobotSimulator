@@ -6,7 +6,11 @@
 using namespace chrono;
 
 namespace {
+
+double sigmoid(double sigma, double x) { return 1 / (1 + exp(-sigma * x)); }
+
 ChVector<> ComputeAverageOrientation() { return ChVector<>(1.0, 0.0, 0.0); }
+
 chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
   const size_t kNumSegs = robot->body_list.size();
   chrono::ChVectorDynamic<> thetas(kNumSegs);
@@ -31,56 +35,72 @@ chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
   }
 
   // Now compute the jacobian
-  chrono::ChMatrixDynamic<> jacobian(3 * kNumSegs, kNumSegs);
-  // Fill the elements (partial x_i, y_i / partial theta_j)
+  chrono::ChMatrixDynamic<> jacobian_dx(kNumSegs, kNumSegs);
+  chrono::ChMatrixDynamic<> jacobian_dy(kNumSegs, kNumSegs);
+  chrono::ChMatrixDynamic<> jacobian_dt(kNumSegs, kNumSegs);
   for (size_t i = 0; i < kNumSegs; ++i) {
     // the jth link is the end effector
     double l = robot->body_length_list[i];
-    jacobian(3 * i + 0, i) = 0 - 0.5 * l * sin_thetas(i);
-    jacobian(3 * i + 1, i) = 0 + 0.5 * l * cos_thetas(i);
+    jacobian_dx(i, i) = 0 - 0.5 * l * sin_thetas(i);
+    jacobian_dy(i, i) = 0 + 0.5 * l * cos_thetas(i);
+    jacobian_dt(i, i) = 1;
     for (int j = i - 1; j >= 0; --j) {
       double l = robot->body_length_list[j];
-      jacobian(3 * i + 0, j) = jacobian(3 * i + 0, j + 1) - l * sin_thetas(j);
-      jacobian(3 * i + 1, j) = jacobian(3 * i + 1, j + 1) + l * cos_thetas(j);
-      jacobian(3 * i + 2, j) = 1;
+      jacobian_dx(i, j) = 0 - l * sin_thetas(j);
+      jacobian_dy(i, j) = 0 + l * cos_thetas(j);
     }
   }
 
-  for (size_t i = 0; i < kNumSegs; ++i) {
-    for (size_t j = 0; j < kNumSegs; ++j) {
-      std::cout << jacobian(3 * i, j) << " ";
-    }
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
-  // Now compute the CoM contribution, first let us do a accumulation along row.
-  chrono::ChVectorDynamic<> com_jacobian_x(kNumSegs);
-  chrono::ChVectorDynamic<> com_jacobian_y(kNumSegs);
-  for (size_t j = 0; j < kNumSegs; ++j) {
+  chrono::ChVectorDynamic<> jacobian_dx_col_mean(kNumSegs);
+  chrono::ChVectorDynamic<> jacobian_dy_col_mean(kNumSegs);
+  for (size_t j = 1; j < kNumSegs; ++j) {
     for (size_t i = 0; i < kNumSegs; ++i) {
-      com_jacobian_x(j) += jacobian(3 * i + 0, j);
-      com_jacobian_y(j) += jacobian(3 * i + 1, j);
+      jacobian_dx_col_mean(j) += jacobian_dx(i, j) / double(kNumSegs);
+      jacobian_dy_col_mean(j) += jacobian_dy(i, j) / double(kNumSegs);
     }
-    com_jacobian_x(j) = com_jacobian_x(j) / kNumSegs;
-    com_jacobian_y(j) = com_jacobian_y(j) / kNumSegs;
   }
 
+  for (size_t j = 1; j < kNumSegs; ++j) {
+    for (size_t i = 0; i < kNumSegs; ++i) {
+      jacobian_dx(i, j) = jacobian_dx(i, j) - jacobian_dx_col_mean(j);
+      jacobian_dy(i, j) = jacobian_dy(i, j) - jacobian_dy_col_mean(j);
+    }
+  }
+
+  chrono::ChMatrixDynamic<> jacobian_th(kNumSegs, kNumSegs);
+  for (size_t i = 0; i < kNumSegs; ++i) {
+    jacobian_th(i, 0) = 1;
+  }
+  for (size_t j = 1; j < kNumSegs; ++j) {
+    for (size_t i = 0; i < kNumSegs; ++i) {
+      jacobian_th(i, j) = double(j) / double(kNumSegs) - 1 + (i >= j ? 1 : 0);
+    }
+  }
+
+  jacobian_dx = jacobian_dx * jacobian_th;
+  jacobian_dy = jacobian_dy * jacobian_th;
+  jacobian_dt = jacobian_dt * jacobian_th;
+
+  chrono::ChMatrixDynamic<> jacobian(3 * kNumSegs, kNumSegs);
+  // Fill the elements (partial x_i, y_i / partial theta_j)
   for (size_t i = 0; i < kNumSegs; ++i) {
     for (size_t j = 0; j < kNumSegs; ++j) {
-      jacobian(3 * i + 0, j) = jacobian(3 * i + 0, j) - com_jacobian_x(j);
-      jacobian(3 * i + 1, j) = jacobian(3 * i + 1, j) - com_jacobian_y(j);
+      jacobian(3 * i + 0, j) = jacobian_dx(i, j);
+      jacobian(3 * i + 1, j) = jacobian_dy(i, j);
+      jacobian(3 * i + 2, j) = jacobian_dt(i, j);
     }
   }
 
+  /*
   for (size_t i = 0; i < kNumSegs; ++i) {
     for (size_t j = 0; j < kNumSegs; ++j) {
       std::cout << jacobian(3 * i, j) << " ";
     }
     std::cout << std::endl;
-  }
+  }*/
 
   jacobian.MatrTranspose();
-  exit(0);
+  // exit(0);
 
   return jacobian;
 }
@@ -89,7 +109,7 @@ chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
 
 class ExtractContactForce : public ChReportContactCallback2 {
 public:
-  ExtractContactForce(std::vector<ChVector<>> *contact_force_list)
+  ExtractContactForce(std::vector<ChVector<> > *contact_force_list)
       : contact_force_list_(contact_force_list) {}
   virtual bool ReportContactCallback2(const chrono::ChVector<> &point_a,
                                       const chrono::ChVector<> &point_b,
@@ -104,13 +124,16 @@ public:
     ChVector<> contact_force = plane_coord * react_forces;
     ChVector<> contact_force_normal = contact_normal * react_forces.x;
     auto id_a = model_a->GetPhysicsItem()->GetIdentifier();
-    if (id_a >= 0 && id_a < contact_force_list_->size()) {
+    auto id_b = model_b->GetPhysicsItem()->GetIdentifier();
+
+    if (id_a >= 0 && id_a < contact_force_list_->size() && id_b == -1) {
       (*contact_force_list_)[id_a] -= contact_force_normal;
+      return true;
     }
 
-    auto id_b = model_b->GetPhysicsItem()->GetIdentifier();
-    if (id_b >= 0 && id_b < contact_force_list_->size()) {
+    if (id_b >= 0 && id_b < contact_force_list_->size() && id_a == -1) {
       (*contact_force_list_)[id_b] = contact_force_normal;
+      return true;
     }
 
     // std::cout << model_a->GetPhysicsItem()->GetIdentifier() << "  ";
@@ -146,12 +169,13 @@ public:
   }
 
 private:
-  std::vector<ChVector<>> *contact_force_list_;
+  std::vector<ChVector<> > *contact_force_list_;
 };
 
 Controller::Controller(chrono::ChSystem *ch_system, class Robot *i_robot)
     : ch_system_(ch_system), robot_(i_robot),
-      contact_force_list_(robot_->body_list.size()) {
+      contact_force_list_(robot_->body_list.size()),
+      weight_(robot_->body_list.size()) {
   contact_reporter_ = new ExtractContactForce(&contact_force_list_);
 }
 
@@ -168,18 +192,39 @@ void Controller::Step(double dt) {
   ChVector<> desired_direction = ComputeAverageOrientation();
   for (size_t i = 0; i < kNumSegs; ++i) {
     double force_mag = contact_force_list_[i].Length();
-    double cos_theta = 0;
+    double cos_theta = 1.0;
     if (force_mag > 1e-4) {
-      cos_theta = desired_direction.Dot(contact_force_list_[i] / force_mag);
+      contact_force_list_[i] = contact_force_list_[i] / force_mag;
+      cos_theta = desired_direction.Dot(contact_force_list_[i]);
     }
-    double weight = cos_theta;
-    ext_force(3 * i + 0) = contact_force_list_[i](0) * weight;
-    ext_force(3 * i + 1) = contact_force_list_[i](2) * weight;
+    weight_(i) = (1 - cos_theta) * 0.5;
+    // weight_(i) = sigmoid(6, -cos_theta);
+    ext_force(3 *i + 0) = contact_force_list_[i](0) * cos_theta *
+                          std::max(std::min(force_mag, 2.0), 0.0);
+    ext_force(3 *i + 1) = contact_force_list_[i](2) * cos_theta *
+                          std::max(std::min(force_mag, 2.0), 0.0);
     // Torque
-    ext_force(3 * i + 2) = 0;
+    ext_force(3 *i + 2) = 0;
   }
-  torques_ext_ = jacobian * ext_force;
 
+  // redistribute weight to nearby joints
+  ChVectorDynamic<> weight_redist(kNumSegs);
+  double max_weight = 0;
+  for (int i = 0; i < kNumSegs; ++i) {
+    for (int j = 0; j < kNumSegs; ++j) {
+      double decay = -(j - i) * (j - i) * 0.5;
+      weight_redist(i) = weight_redist(i) + exp(decay) * weight_(j);
+    }
+    max_weight = std::max(max_weight, weight_redist(i));
+  }
+
+  if (max_weight > 0) {
+    for (size_t i = 0; i < kNumSegs; ++i) {
+      weight_(i) = weight_redist(i) / max_weight;
+    }
+  }
+
+  torques_ext_ = jacobian * ext_force;
   /*
   auto gravity = ch_system_->Get_G_acc().Length();
   ChVectorDynamic<> gravity_force(3 * kNumSegs);
@@ -191,18 +236,13 @@ void Controller::Step(double dt) {
   }
   */
   // torques_ext_ = jacobian * ext_force;
-
-  for (size_t i = 0; i < torques_ext_.GetRows(); ++i) {
-    std::cout << torques_ext_(i) << " ";
-  }
-  std::cout << "\n";
 }
 
 size_t Controller::GetNumEngines() { return robot_->engine_list.size(); }
 ChLinkEngine *Controller::GetEngine(size_t i) { return robot_->engine_list[i]; }
 
 double Controller::GetExtTorque(size_t i, double t) { return torques_ext_(i); }
-
+double Controller::GetExtTorqueWeight(size_t i, double t) { return weight_(i); }
 double Controller::GetPatternAngle(size_t index, double t) {
   const double phase =
       double(index * 2) / robot_->engine_list.size() * CH_C_2PI;
@@ -221,11 +261,9 @@ void UsePositionControl(Robot *robot) {
   auto &engine_list = robot->engine_list;
   for (size_t i = 0; i < engine_list.size(); ++i) {
     ChSharedPtr<ChFunction_Sine> engine_funct(new ChFunction_Sine(
-        double(i) * 2 / engine_list.size() * CH_C_2PI, 0.2, 0.5));
+        double(i) * 2 / engine_list.size() * CH_C_2PI, 0.2, 0.6));
     engine_list[i]->Set_eng_mode(ChLinkEngine::ENG_MODE_ROTATION);
     engine_list[i]->Set_rot_funct(engine_funct);
-    engine_list[i]->GetLimit_Rz()->Set_max(0.2);
-    engine_list[i]->GetLimit_Rz()->Set_min(-0.2);
   }
 }
 
@@ -235,5 +273,9 @@ void UseController(Controller *controller) {
         new ChFunctionController(i, controller));
     controller->GetEngine(i)->Set_eng_mode(ChLinkEngine::ENG_MODE_TORQUE);
     controller->GetEngine(i)->Set_tor_funct(engine_funct);
+    controller->GetEngine(i)->GetLimit_Rz()->Set_active(true);
+    controller->GetEngine(i)->GetLimit_Rz()->Set_max(0.6);
+    controller->GetEngine(i)->GetLimit_Rz()->Set_min(-0.6);
+    engine_funct->p_gain = 0.8 - abs(i - 12) / 24.0;
   }
 }

@@ -17,6 +17,7 @@ public:
   size_t GetNumEngines();
   chrono::ChLinkEngine *GetEngine(size_t i);
   double GetExtTorque(size_t i, double t);
+  double GetExtTorqueWeight(size_t i, double t);
   double GetPatternAngle(size_t i, double t);
   double GetPatternAngularSpeed(size_t i, double t);
 
@@ -28,9 +29,10 @@ private:
   std::vector<chrono::ChVector<> > contact_force_list_;
   // the torques at joints, computed from contact forces.
   chrono::ChVectorDynamic<> torques_ext_;
+  chrono::ChVectorDynamic<> weight_;
   // Parametr for the CPG
   double omega_ = 0.2 * chrono::CH_C_2PI;
-  double amplitude_ = 0.5;
+  double amplitude_ = 0.6;
 };
 
 void UseController(Controller *controller);
@@ -50,9 +52,11 @@ public:
   int Get_Type() { return 9527; }
 
   double Get_y(double curr_t) {
-    double torque =
-        ComputePDTorque(curr_t) - controller_->GetExtTorque(index_, curr_t);
+    double weight = controller_->GetExtTorqueWeight(index_ + 1, curr_t);
+    double torque = (1 - weight) * ComputePDTorque(curr_t) -
+                    controller_->GetExtTorque(index_ + 1, curr_t);
     torque = std::max(std::min(torque_limit, torque), -torque_limit);
+    // std::cout << index_ << " " << torque << std::endl;
     return torque;
   }
 
@@ -61,9 +65,11 @@ public:
     return 0;
   }
 
-  double p_gain = 0.300;
-  double d_gain = 0.000;
-  double torque_limit = 0.5;
+  double p_gain = 0.50;
+  double i_gain = 0.00;
+  double d_gain = 0.00;
+
+  double torque_limit = 0.8;
 
 protected:
   // The low level PID controller in motor.
@@ -76,11 +82,16 @@ protected:
     auto engine = controller_->GetEngine(index_);
     double curr_angle = engine->Get_mot_rot();
     double curr_angular_speed = engine->Get_mot_rot_dt();
+    // std::cout << index_ << " " << desired_angle - curr_angle << std::endl;
+    cum_error_ += desired_angle - curr_angle;
     double torque = p_gain * (desired_angle - curr_angle) +
-                    d_gain * (desired_angular_speed - curr_angular_speed);
+                    d_gain * (desired_angular_speed - curr_angular_speed) +
+                    cum_error_ * i_gain;
     torque = std::max(std::min(torque_limit, torque), -torque_limit);
     return torque;
   }
+
+  double cum_error_ = 0;
 
   Controller *controller_;
   size_t index_;

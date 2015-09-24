@@ -134,15 +134,15 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
         500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
     ground->SetBodyFixed(true);
     ground->SetPos(ChVector<>(0, -0.5, 0));
-    ground->SetIdentifier(-1);
-    ground->GetMaterialSurface()->SetFriction(0.2);
+    ground->SetIdentifier(-2);
+    ground->GetMaterialSurface()->SetFriction(0.1);
     ch_system->Add(ground);
     // the Snake params
     const size_t kNumSegments = 25;
     const double kL = 1.10;
     const double kW = 0.05;
     const double kLx = kL / kNumSegments;
-    ChVector<> center_pos(-kL * 0.5, -kW * 0.5, 0);
+    ChVector<> center_pos(0.0, -kW * 0.5, 0);
     std::vector<ChSharedBodyPtr> body_container_;
     for (size_t i = 0; i < kNumSegments; ++i) {
       ChSharedBodyPtr body_ptr;
@@ -205,16 +205,17 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
   // Build a set of random collidables.
   if (true) {
     const size_t kGridSize = 5;
-    const double kGridDist = 0.3;
+    const double kGridDist = 0.4;
     const double kHeight = 0.2;
     const double kSigma = 0.1;
 
-    std::mt19937 generator(0.1);
+    std::mt19937 generator(15);
     std::normal_distribution<double> normal_dist_radius(0.0, kSigma);
 
     for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {
       for (size_t z_grid = 0; z_grid < kGridSize; ++z_grid) {
         double radius = fabs(normal_dist_radius(generator));
+        radius = 0.15;
         radius = std::max(radius, 0.01);
         ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
             radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
