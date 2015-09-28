@@ -203,7 +203,7 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
   }
 
   // Build a set of random collidables.
-  if (true) {
+  if (false) {
     const size_t kGridSize = 5;
     const double kGridDist = 0.4;
     const double kHeight = 0.2;

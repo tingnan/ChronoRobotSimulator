@@ -53,8 +53,12 @@ public:
 
   double Get_y(double curr_t) {
     double weight = controller_->GetExtTorqueWeight(index_ + 1, curr_t);
-    double torque = (1 - weight) * ComputePDTorque(curr_t) -
-                    controller_->GetExtTorque(index_ + 1, curr_t);
+    double torque = ComputePDTorque(curr_t);
+    double ext_torque = controller_->GetExtTorque(index_ + 1, curr_t);
+    double angular_speed = controller_->GetPatternAngularSpeed(index_, curr_t);
+    if (ext_torque * angular_speed > 0) {
+      torque -= ext_torque;
+    }
     torque = std::max(std::min(torque_limit, torque), -torque_limit);
     // std::cout << index_ << " " << torque << std::endl;
     return torque;
@@ -69,15 +73,14 @@ public:
   double i_gain = 0.00;
   double d_gain = 0.00;
 
-  double torque_limit = 0.8;
+  double torque_limit = 0.5;
 
 protected:
   // The low level PID controller in motor.
   double ComputePDTorque(double t) {
-    double amp_mod = 1.0;
-    double desired_angle = amp_mod * controller_->GetPatternAngle(index_, t);
+    double desired_angle = controller_->GetPatternAngle(index_, t);
     double desired_angular_speed =
-        amp_mod * controller_->GetPatternAngularSpeed(index_, t);
+        controller_->GetPatternAngularSpeed(index_, t);
 
     auto engine = controller_->GetEngine(index_);
     double curr_angle = engine->Get_mot_rot();

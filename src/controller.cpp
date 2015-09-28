@@ -1,3 +1,4 @@
+#include <Eigen/Dense>
 
 #include "include/controller.h"
 #include "include/robot.h"
@@ -12,8 +13,10 @@ double sigmoid(double sigma, double x) { return 1 / (1 + exp(-sigma * x)); }
 ChVector<> ComputeAverageOrientation() { return ChVector<>(1.0, 0.0, 0.0); }
 
 chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
+
   const size_t kNumSegs = robot->body_list.size();
-  chrono::ChVectorDynamic<> thetas(kNumSegs);
+  Eigen::VectorXd thetas(kNumSegs);
+  thetas.setZero();
   for (size_t i = 0; i < kNumSegs; ++i) {
     auto body_ptr = robot->body_list[i];
     auto rot_quoternion = body_ptr->GetRot();
@@ -26,60 +29,74 @@ chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
     thetas(i) = angle;
   }
 
-  chrono::ChVectorDynamic<> sin_thetas(kNumSegs);
-  chrono::ChVectorDynamic<> cos_thetas(kNumSegs);
+  Eigen::VectorXd sin_thetas(kNumSegs);
+  Eigen::VectorXd cos_thetas(kNumSegs);
   for (size_t j = 0; j < kNumSegs; ++j) {
     // use thetas instead of theta for pendulumn
     sin_thetas(j) = sin(thetas(j));
     cos_thetas(j) = cos(thetas(j));
   }
 
-  // Now compute the jacobian
-  chrono::ChMatrixDynamic<> jacobian_dx(kNumSegs, kNumSegs);
-  chrono::ChMatrixDynamic<> jacobian_dy(kNumSegs, kNumSegs);
-  chrono::ChMatrixDynamic<> jacobian_dt(kNumSegs, kNumSegs);
+  // Now compute the jacobian, each line has n + 2 columns
+  Eigen::MatrixXd jacobian_dx(kNumSegs, kNumSegs + 2);
+  jacobian_dx.setZero();
+  Eigen::MatrixXd jacobian_dy(kNumSegs, kNumSegs + 2);
+  jacobian_dy.setZero();
+  Eigen::MatrixXd jacobian_dt(kNumSegs, kNumSegs + 2);
+  jacobian_dt.setZero();
   for (size_t i = 0; i < kNumSegs; ++i) {
     // the jth link is the end effector
     double l = robot->body_length_list[i];
     jacobian_dx(i, i) = 0 - 0.5 * l * sin_thetas(i);
+    jacobian_dx(i, kNumSegs + 0) = 1;
     jacobian_dy(i, i) = 0 + 0.5 * l * cos_thetas(i);
+    jacobian_dy(i, kNumSegs + 1) = 1;
     jacobian_dt(i, i) = 1;
     for (int j = i - 1; j >= 0; --j) {
       double l = robot->body_length_list[j];
-      jacobian_dx(i, j) = 0 - l * sin_thetas(j);
-      jacobian_dy(i, j) = 0 + l * cos_thetas(j);
+      jacobian_dx(i, j) = jacobian_dx(i, j + 1) - l * sin_thetas(j);
+      jacobian_dy(i, j) = jacobian_dy(i, j + 1) + l * cos_thetas(j);
+      jacobian_dt(i, j) = 1;
     }
   }
+  // std::cout << jacobian_dy << std::endl;
+  // std::cout << jacobian_dt << std::endl;
 
-  chrono::ChVectorDynamic<> jacobian_dx_col_mean(kNumSegs);
-  chrono::ChVectorDynamic<> jacobian_dy_col_mean(kNumSegs);
+  Eigen::MatrixXd jacobian_th(kNumSegs, kNumSegs);
+  jacobian_th.setIdentity();
   for (size_t j = 1; j < kNumSegs; ++j) {
-    for (size_t i = 0; i < kNumSegs; ++i) {
-      jacobian_dx_col_mean(j) += jacobian_dx(i, j) / double(kNumSegs);
-      jacobian_dy_col_mean(j) += jacobian_dy(i, j) / double(kNumSegs);
-    }
+    jacobian_th(0, j) = -1 + double(j) / kNumSegs;
   }
+  // std::cout << jacobian_th << std::endl;
 
-  for (size_t j = 1; j < kNumSegs; ++j) {
-    for (size_t i = 0; i < kNumSegs; ++i) {
-      jacobian_dx(i, j) = jacobian_dx(i, j) - jacobian_dx_col_mean(j);
-      jacobian_dy(i, j) = jacobian_dy(i, j) - jacobian_dy_col_mean(j);
-    }
+  Eigen::VectorXd jacobian_dx_row_mean(kNumSegs);
+  jacobian_dx_row_mean.setZero();
+  Eigen::VectorXd jacobian_dy_row_mean(kNumSegs);
+  jacobian_dy_row_mean.setZero();
+  for (size_t j = 0; j < kNumSegs; ++j) {
+    jacobian_dx_row_mean(j) = -jacobian_dx.col(j).sum() / kNumSegs;
+    jacobian_dy_row_mean(j) = -jacobian_dy.col(j).sum() / kNumSegs;
   }
+  jacobian_dx_row_mean = jacobian_dx_row_mean.transpose() * jacobian_th;
+  jacobian_dy_row_mean = jacobian_dy_row_mean.transpose() * jacobian_th;
+  // std::cout << jacobian_dx_row_mean.transpose() << std::endl;
+  // std::cout << jacobian_dy_row_mean.transpose() << std::endl;
 
-  chrono::ChMatrixDynamic<> jacobian_th(kNumSegs, kNumSegs);
-  for (size_t i = 0; i < kNumSegs; ++i) {
-    jacobian_th(i, 0) = 1;
-  }
-  for (size_t j = 1; j < kNumSegs; ++j) {
-    for (size_t i = 0; i < kNumSegs; ++i) {
-      jacobian_th(i, j) = double(j) / double(kNumSegs) - 1 + (i >= j ? 1 : 0);
-    }
-  }
+  Eigen::MatrixXd jj(kNumSegs + 2, kNumSegs + 2);
+  jj.setZero();
+  jj.block(0, 0, kNumSegs, kNumSegs) = jacobian_th;
+  jj.block(kNumSegs + 0, 0, 1, kNumSegs) = jacobian_dx_row_mean.transpose();
+  jj.block(kNumSegs + 1, 0, 1, kNumSegs) = jacobian_dy_row_mean.transpose();
+  jj(kNumSegs, kNumSegs) = 1;
+  jj(kNumSegs + 1, kNumSegs + 1) = 1;
+  // std::cout << jj << std::endl;
 
-  jacobian_dx = jacobian_dx * jacobian_th;
-  jacobian_dy = jacobian_dy * jacobian_th;
-  jacobian_dt = jacobian_dt * jacobian_th;
+  jacobian_dx = jacobian_dx * jj;
+  jacobian_dy = jacobian_dy * jj;
+  jacobian_dt = jacobian_dt * jj;
+
+  // std::cout << jacobian_dy << std::endl;
+  // std::cout << jacobian_dt << std::endl;
 
   chrono::ChMatrixDynamic<> jacobian(3 * kNumSegs, kNumSegs);
   // Fill the elements (partial x_i, y_i / partial theta_j)
@@ -90,18 +107,7 @@ chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
       jacobian(3 * i + 2, j) = jacobian_dt(i, j);
     }
   }
-
-  /*
-  for (size_t i = 0; i < kNumSegs; ++i) {
-    for (size_t j = 0; j < kNumSegs; ++j) {
-      std::cout << jacobian(3 * i, j) << " ";
-    }
-    std::cout << std::endl;
-  }*/
-
   jacobian.MatrTranspose();
-  // exit(0);
-
   return jacobian;
 }
 
@@ -128,43 +134,12 @@ public:
 
     if (id_a >= 0 && id_a < contact_force_list_->size() && id_b == -1) {
       (*contact_force_list_)[id_a] -= contact_force_normal;
-      return true;
     }
 
     if (id_b >= 0 && id_b < contact_force_list_->size() && id_a == -1) {
       (*contact_force_list_)[id_b] = contact_force_normal;
-      return true;
     }
 
-    // std::cout << model_a->GetPhysicsItem()->GetIdentifier() << "  ";
-    // std::cout << model_b->GetPhysicsItem()->GetIdentifier() << "\n";
-    /*
-    ChVector<> v1 = point_a;
-    ChVector<> v2;
-
-    switch (drawtype) {
-    case ChIrrTools::CONTACT_DISTANCES:
-      v2 = point_b;
-      break;
-    case ChIrrTools::CONTACT_NORMALS:
-      v2 = point_a + vn * clen;
-      break;
-    case ChIrrTools::CONTACT_FORCES_N:
-      v2 = point_a + vn * clen * react_forces.x;
-      break;
-    case ChIrrTools::CONTACT_FORCES:
-      v2 = point_a + (mplanecoord * (react_forces * clen));
-      break;
-    }
-    video::SColor mcol;
-    if (distance > 0.0)
-      mcol = video::SColor(200, 20, 255, 0); // green: non penetration
-    else
-      mcol = video::SColor(200, 255, 60, 60); // red: penetration
-
-    this->cdriver->draw3DLine(core::vector3dfCH(v1), core::vector3dfCH(v2),
-                              mcol);
-    */
     return true; // to continue scanning contacts
   }
 
@@ -190,7 +165,12 @@ void Controller::Step(double dt) {
 
   ChVectorDynamic<> ext_force(3 * kNumSegs);
   ChVector<> desired_direction = ComputeAverageOrientation();
+  ChVector<> accum_force;
   for (size_t i = 0; i < kNumSegs; ++i) {
+    // get the rft_force
+    auto rft_force = robot_->body_list[i]->Get_accumulated_force();
+    accum_force += rft_force;
+    // process contact forces;
     double force_mag = contact_force_list_[i].Length();
     double cos_theta = 1.0;
     if (force_mag > 1e-4) {
@@ -199,13 +179,19 @@ void Controller::Step(double dt) {
     }
     weight_(i) = (1 - cos_theta) * 0.5;
     // weight_(i) = sigmoid(6, -cos_theta);
+
+    // fx
     ext_force(3 *i + 0) = contact_force_list_[i](0) * cos_theta *
-                          std::max(std::min(force_mag, 2.0), 0.0);
+                              std::max(std::min(force_mag, 2.0), 0.0) +
+                          1 * rft_force(0);
+    // fz
     ext_force(3 *i + 1) = contact_force_list_[i](2) * cos_theta *
-                          std::max(std::min(force_mag, 2.0), 0.0);
+                              std::max(std::min(force_mag, 2.0), 0.0) +
+                          1 * rft_force(2);
     // Torque
     ext_force(3 *i + 2) = 0;
   }
+  // std::cout << accum_force << std::endl;
 
   // redistribute weight to nearby joints
   ChVectorDynamic<> weight_redist(kNumSegs);
@@ -276,6 +262,5 @@ void UseController(Controller *controller) {
     controller->GetEngine(i)->GetLimit_Rz()->Set_active(true);
     controller->GetEngine(i)->GetLimit_Rz()->Set_max(0.6);
     controller->GetEngine(i)->GetLimit_Rz()->Set_min(-0.6);
-    engine_funct->p_gain = 0.8 - abs(i - 12) / 24.0;
   }
 }
