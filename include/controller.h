@@ -53,6 +53,12 @@ public:
 
   double Get_y(double curr_t) {
     double torque = ComputeDriveTorque(curr_t) + ComputeLimitTorque(curr_t);
+    double torque_ext = ComputeExternalTorque(curr_t);
+    double desired_angular_speed =
+        controller_->GetPatternAngularSpeed(index_, curr_t);
+    if (torque_ext * desired_angular_speed > 0) {
+      torque = torque + torque_ext;
+    }
     torque = std::max(std::min(torque_limit, torque), -torque_limit);
     return torque;
   }
@@ -91,7 +97,7 @@ protected:
     double torque = p_gain * (desired_angle - curr_angle) +
                     d_gain * (desired_angular_speed - curr_angular_speed) +
                     cum_error_ * i_gain;
-
+    /*
     if (desired_angular_speed < 0) {
       torque = curr_angle > desired_angle
                    ? p_gain * (desired_angle - curr_angle)
@@ -101,6 +107,7 @@ protected:
                    ? p_gain * (desired_angle - curr_angle)
                    : 0;
     }
+    */
 
     return torque;
   }

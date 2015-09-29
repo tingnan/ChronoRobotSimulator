@@ -19,7 +19,7 @@ endif()
 
 file(GLOB SOURCES "src/*.cpp")
 file(GLOB HEADERS "include/*.h")
-add_executable(main ${HEADERS} ${SOURCES})
+add_executable(main MACOSX_BUNDLE ${HEADERS} ${SOURCES})
 find_library(CHRONO_LIB NAMES ChronoEngine PATHS ${CHRONO_DIR}/lib)
 find_library(CHRONO_IRRLICHT_LIB NAMES ChronoEngine_irrlicht PATHS ${CHRONO_DIR}/lib)
 set(CHRONO_LIBS ${CHRONO_LIB} ${CHRONO_IRRLICHT_LIB})

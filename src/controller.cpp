@@ -166,6 +166,7 @@ void Controller::Step(double dt) {
   for (size_t i = 0; i < kNumSegs; ++i) {
     // get the rft_force
     auto rft_force = robot_->body_list[i]->Get_accumulated_force();
+    // std::cout << i << " " << rft_force << std::endl;
     accum_force += rft_force;
     // process contact forces;
     double force_mag = contact_force_list_[i].Length();
@@ -177,13 +178,13 @@ void Controller::Step(double dt) {
     weight_(i) = (1 + cos_theta) * 0.5;
     // weight_(i) = sigmoid(6, -cos_theta);
     // fx
-    ext_force(3 * i + 0) = contact_force_list_[i](0) * cos_theta *
-                               std::max(std::min(force_mag, 2.0), 0.0) +
-                           1 * rft_force(0);
+    ext_force(3 * i + 0) =
+        contact_force_list_[i](0) * std::max(std::min(force_mag, 5.0), 0.0) +
+        1 * rft_force(0);
     // fz
-    ext_force(3 * i + 1) = contact_force_list_[i](2) * cos_theta *
-                               std::max(std::min(force_mag, 2.0), 0.0) +
-                           1 * rft_force(2);
+    ext_force(3 * i + 1) =
+        contact_force_list_[i](2) * std::max(std::min(force_mag, 5.0), 0.0) +
+        1 * rft_force(2);
     // Torque
     ext_force(3 * i + 2) = 0;
   }
