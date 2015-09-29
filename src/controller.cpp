@@ -112,7 +112,7 @@ chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
 
 class ExtractContactForce : public ChReportContactCallback2 {
 public:
-  ExtractContactForce(std::vector<ChVector<>> *contact_force_list)
+  ExtractContactForce(std::vector<ChVector<> > *contact_force_list)
       : contact_force_list_(contact_force_list) {}
   virtual bool ReportContactCallback2(const chrono::ChVector<> &point_a,
                                       const chrono::ChVector<> &point_b,
@@ -141,7 +141,7 @@ public:
   }
 
 private:
-  std::vector<ChVector<>> *contact_force_list_;
+  std::vector<ChVector<> > *contact_force_list_;
 };
 
 Controller::Controller(chrono::ChSystem *ch_system, class Robot *i_robot)
@@ -178,15 +178,15 @@ void Controller::Step(double dt) {
     weight_(i) = (1 + cos_theta) * 0.5;
     // weight_(i) = sigmoid(6, -cos_theta);
     // fx
-    ext_force(3 * i + 0) =
+    ext_force(3 *i + 0) =
         contact_force_list_[i](0) * std::max(std::min(force_mag, 5.0), 0.0) +
-        1 * rft_force(0);
+        0 * rft_force(0);
     // fz
-    ext_force(3 * i + 1) =
+    ext_force(3 *i + 1) =
         contact_force_list_[i](2) * std::max(std::min(force_mag, 5.0), 0.0) +
-        1 * rft_force(2);
+        0 * rft_force(2);
     // Torque
-    ext_force(3 * i + 2) = 0;
+    ext_force(3 *i + 2) = 0;
   }
   // std::cout << accum_force << std::endl;
 

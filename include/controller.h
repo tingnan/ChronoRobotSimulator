@@ -26,7 +26,7 @@ private:
   class Robot *robot_;
   // Contact force on each of the robot segment.
   chrono::ChReportContactCallback2 *contact_reporter_;
-  std::vector<chrono::ChVector<>> contact_force_list_;
+  std::vector<chrono::ChVector<> > contact_force_list_;
   // the torques at joints, computed from contact forces.
   chrono::ChVectorDynamic<> torques_ext_;
   chrono::ChVectorDynamic<> weight_;
@@ -56,9 +56,11 @@ public:
     double torque_ext = ComputeExternalTorque(curr_t);
     double desired_angular_speed =
         controller_->GetPatternAngularSpeed(index_, curr_t);
+
     if (torque_ext * desired_angular_speed > 0) {
-      torque = torque + torque_ext;
-    }
+      // resist the ext torque
+      torque = torque + 0.5 * torque_ext;
+    };
     torque = std::max(std::min(torque_limit, torque), -torque_limit);
     return torque;
   }
@@ -70,7 +72,7 @@ public:
 
   double p_gain = 0.50;
   double i_gain = 0.00;
-  double d_gain = 0.00;
+  double d_gain = 5e-4;
 
   double torque_limit = 0.5;
 
@@ -80,11 +82,12 @@ protected:
   }
 
   double ComputeExternalTorque(double t) {
-    return controller_->GetExtTorque(index_ + 1, t);
+    return -controller_->GetExtTorque(index_ + 1, t);
   }
 
   // The low level PID controller in motor.
   double ComputeDriveTorque(double t) {
+    // for a "bad" contact we decrease the local curvature
     double amp_mod = ComputeAmpMod(t);
     double desired_angle = amp_mod * controller_->GetPatternAngle(index_, t);
     double desired_angular_speed =
