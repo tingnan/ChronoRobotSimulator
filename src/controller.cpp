@@ -10,10 +10,7 @@ namespace {
 
 double sigmoid(double sigma, double x) { return 1 / (1 + exp(-sigma * x)); }
 
-ChVector<> ComputeAverageOrientation() { return ChVector<>(1.0, 0.0, 0.0); }
-
 chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
-
   const size_t kNumSegs = robot->body_list.size();
   Eigen::VectorXd thetas(kNumSegs);
   thetas.setZero();
@@ -115,7 +112,7 @@ chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
 
 class ExtractContactForce : public ChReportContactCallback2 {
 public:
-  ExtractContactForce(std::vector<ChVector<> > *contact_force_list)
+  ExtractContactForce(std::vector<ChVector<>> *contact_force_list)
       : contact_force_list_(contact_force_list) {}
   virtual bool ReportContactCallback2(const chrono::ChVector<> &point_a,
                                       const chrono::ChVector<> &point_b,
@@ -144,7 +141,7 @@ public:
   }
 
 private:
-  std::vector<ChVector<> > *contact_force_list_;
+  std::vector<ChVector<>> *contact_force_list_;
 };
 
 Controller::Controller(chrono::ChSystem *ch_system, class Robot *i_robot)
@@ -164,7 +161,7 @@ void Controller::Step(double dt) {
   ch_system_->GetContactContainer()->ReportAllContacts2(contact_reporter_);
 
   ChVectorDynamic<> ext_force(3 * kNumSegs);
-  ChVector<> desired_direction = ComputeAverageOrientation();
+  ChVector<> desired_direction = ChVector<>(1.0, 0.0, 0.0);
   ChVector<> accum_force;
   for (size_t i = 0; i < kNumSegs; ++i) {
     // get the rft_force
@@ -177,19 +174,18 @@ void Controller::Step(double dt) {
       contact_force_list_[i] = contact_force_list_[i] / force_mag;
       cos_theta = desired_direction.Dot(contact_force_list_[i]);
     }
-    weight_(i) = (1 - cos_theta) * 0.5;
+    weight_(i) = (1 + cos_theta) * 0.5;
     // weight_(i) = sigmoid(6, -cos_theta);
-
     // fx
-    ext_force(3 *i + 0) = contact_force_list_[i](0) * cos_theta *
-                              std::max(std::min(force_mag, 2.0), 0.0) +
-                          1 * rft_force(0);
+    ext_force(3 * i + 0) = contact_force_list_[i](0) * cos_theta *
+                               std::max(std::min(force_mag, 2.0), 0.0) +
+                           1 * rft_force(0);
     // fz
-    ext_force(3 *i + 1) = contact_force_list_[i](2) * cos_theta *
-                              std::max(std::min(force_mag, 2.0), 0.0) +
-                          1 * rft_force(2);
+    ext_force(3 * i + 1) = contact_force_list_[i](2) * cos_theta *
+                               std::max(std::min(force_mag, 2.0), 0.0) +
+                           1 * rft_force(2);
     // Torque
-    ext_force(3 *i + 2) = 0;
+    ext_force(3 * i + 2) = 0;
   }
   // std::cout << accum_force << std::endl;
 
@@ -207,21 +203,12 @@ void Controller::Step(double dt) {
   if (max_weight > 0) {
     for (size_t i = 0; i < kNumSegs; ++i) {
       weight_(i) = weight_redist(i) / max_weight;
+      // std::cout << weight_(i) << " ";
     }
+    // std::cout << std::endl;
   }
 
   torques_ext_ = jacobian * ext_force;
-  /*
-  auto gravity = ch_system_->Get_G_acc().Length();
-  ChVectorDynamic<> gravity_force(3 * kNumSegs);
-  for (size_t i = 0; i < kNumSegs; ++i) {
-    gravity_force(3 *i + 0) = 0;
-    gravity_force(3 *i + 1) = robot_->body_list[i]->GetMass() * gravity;
-    // Torque
-    gravity_force(3 *i + 2) = 0;
-  }
-  */
-  // torques_ext_ = jacobian * ext_force;
 }
 
 size_t Controller::GetNumEngines() { return robot_->engine_list.size(); }
@@ -259,8 +246,5 @@ void UseController(Controller *controller) {
         new ChFunctionController(i, controller));
     controller->GetEngine(i)->Set_eng_mode(ChLinkEngine::ENG_MODE_TORQUE);
     controller->GetEngine(i)->Set_tor_funct(engine_funct);
-    controller->GetEngine(i)->GetLimit_Rz()->Set_active(true);
-    controller->GetEngine(i)->GetLimit_Rz()->Set_max(0.6);
-    controller->GetEngine(i)->GetLimit_Rz()->Set_min(-0.6);
   }
 }

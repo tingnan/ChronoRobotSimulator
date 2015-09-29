@@ -26,7 +26,7 @@ private:
   class Robot *robot_;
   // Contact force on each of the robot segment.
   chrono::ChReportContactCallback2 *contact_reporter_;
-  std::vector<chrono::ChVector<> > contact_force_list_;
+  std::vector<chrono::ChVector<>> contact_force_list_;
   // the torques at joints, computed from contact forces.
   chrono::ChVectorDynamic<> torques_ext_;
   chrono::ChVectorDynamic<> weight_;
@@ -52,15 +52,8 @@ public:
   int Get_Type() { return 9527; }
 
   double Get_y(double curr_t) {
-    double weight = controller_->GetExtTorqueWeight(index_ + 1, curr_t);
-    double torque = ComputePDTorque(curr_t);
-    double ext_torque = controller_->GetExtTorque(index_ + 1, curr_t);
-    double angular_speed = controller_->GetPatternAngularSpeed(index_, curr_t);
-    if (ext_torque * angular_speed > 0) {
-      torque -= ext_torque;
-    }
+    double torque = ComputeDriveTorque(curr_t) + ComputeLimitTorque(curr_t);
     torque = std::max(std::min(torque_limit, torque), -torque_limit);
-    // std::cout << index_ << " " << torque << std::endl;
     return torque;
   }
 
@@ -76,22 +69,54 @@ public:
   double torque_limit = 0.5;
 
 protected:
-  // The low level PID controller in motor.
-  double ComputePDTorque(double t) {
-    double desired_angle = controller_->GetPatternAngle(index_, t);
-    double desired_angular_speed =
-        controller_->GetPatternAngularSpeed(index_, t);
+  double ComputeAmpMod(double t) {
+    return controller_->GetExtTorqueWeight(index_ + 1, t);
+  }
 
-    auto engine = controller_->GetEngine(index_);
-    double curr_angle = engine->Get_mot_rot();
-    double curr_angular_speed = engine->Get_mot_rot_dt();
+  double ComputeExternalTorque(double t) {
+    return controller_->GetExtTorque(index_ + 1, t);
+  }
+
+  // The low level PID controller in motor.
+  double ComputeDriveTorque(double t) {
+    double amp_mod = ComputeAmpMod(t);
+    double desired_angle = amp_mod * controller_->GetPatternAngle(index_, t);
+    double desired_angular_speed =
+        amp_mod * controller_->GetPatternAngularSpeed(index_, t);
+    double curr_angle = controller_->GetEngine(index_)->Get_mot_rot();
+    double curr_angular_speed =
+        controller_->GetEngine(index_)->Get_mot_rot_dt();
     // std::cout << index_ << " " << desired_angle - curr_angle << std::endl;
     cum_error_ += desired_angle - curr_angle;
     double torque = p_gain * (desired_angle - curr_angle) +
                     d_gain * (desired_angular_speed - curr_angular_speed) +
                     cum_error_ * i_gain;
-    torque = std::max(std::min(torque_limit, torque), -torque_limit);
+
+    if (desired_angular_speed < 0) {
+      torque = curr_angle > desired_angle
+                   ? p_gain * (desired_angle - curr_angle)
+                   : 0;
+    } else {
+      torque = curr_angle < desired_angle
+                   ? p_gain * (desired_angle - curr_angle)
+                   : 0;
+    }
+
     return torque;
+  }
+
+  double ComputeLimitTorque(double t) {
+    auto engine = controller_->GetEngine(index_);
+    double curr_angle = engine->Get_mot_rot();
+    double angle_limit = 1.2;
+    double angle_limit_compliance = 1;
+    if (curr_angle > angle_limit) {
+      return -angle_limit_compliance * (curr_angle - angle_limit);
+    }
+    if (curr_angle < -angle_limit) {
+      return -angle_limit_compliance * (curr_angle - angle_limit);
+    }
+    return 0;
   }
 
   double cum_error_ = 0;
