@@ -10,7 +10,7 @@ namespace {
 
 double sigmoid(double sigma, double x) { return 1 / (1 + exp(-sigma * x)); }
 
-chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
+chrono::ChMatrixDynamic<> ComputeJacobianCoMFrame(Robot *robot) {
   const size_t kNumSegs = robot->body_list.size();
   Eigen::VectorXd thetas(kNumSegs);
   thetas.setZero();
@@ -108,6 +108,41 @@ chrono::ChMatrixDynamic<> ComputeJacobian(Robot *robot) {
   return jacobian;
 }
 
+chrono::ChVectorDynamic<>
+RedistContactWeight(const chrono::ChVectorDynamic<> &contact_weight) {
+  // redistribute weight to
+  // nearby joints
+  const size_t kNumSegs = contact_weight.GetRows();
+  chrono::ChVectorDynamic<> weight_redist(kNumSegs);
+
+  /*
+  double max_weight = 0;
+  for (int i = 0; i < kNumSegs; ++i) {
+    for (int j = 0; j < kNumSegs; ++j) {
+      double decay = -(j - i) * (j - i) * 0.5;
+      weight_redist(i) = weight_redist(i) + exp(decay) * contact_weight(j);
+    }
+    max_weight = std::max(max_weight, weight_redist(i));
+  }
+
+  if (max_weight > 0) {
+    for (size_t i = 0; i < kNumSegs; ++i) {
+      weight_redist(i) = weight_redist(i) / max_weight;
+    }
+  }
+ */
+  for (size_t i = 0; i < kNumSegs; ++i) {
+    weight_redist(i) = 2 - contact_weight(i);
+  }
+
+  for (size_t i = 0; i < kNumSegs; ++i) {
+    weight_redist(i) =
+        weight_redist(i) > 1 ? 0.7 + 0.3 * weight_redist(i) : weight_redist(i);
+  }
+
+  return weight_redist;
+}
+
 } // namespoint_ace
 
 class ExtractContactForce : public ChReportContactCallback2 {
@@ -126,6 +161,10 @@ public:
 
     ChVector<> contact_force = plane_coord * react_forces;
     ChVector<> contact_force_normal = contact_normal * react_forces.x;
+    auto contact_force_tangent =
+        contact_force - dot(contact_normal, contact_force) * contact_normal;
+    auto f = contact_force_tangent.Length();
+    auto N = contact_force_normal.Length();
     auto id_a = model_a->GetPhysicsItem()->GetIdentifier();
     auto id_b = model_b->GetPhysicsItem()->GetIdentifier();
 
@@ -147,95 +186,175 @@ private:
 Controller::Controller(chrono::ChSystem *ch_system, class Robot *i_robot)
     : ch_system_(ch_system), robot_(i_robot),
       contact_force_list_(robot_->body_list.size()),
-      weight_(robot_->body_list.size()) {
+      amplitudes_(robot_->engine_list.size()),
+      average_contact_weight_(robot_->engine_list.size()) {
   contact_reporter_ = new ExtractContactForce(&contact_force_list_);
+  for (size_t i = 0; i < amplitudes_.GetRows(); ++i) {
+    amplitudes_(i) = default_amplitude_;
+    average_contact_weight_(i) = 1;
+  }
 }
 
 void Controller::Step(double dt) {
-  auto jacobian = ComputeJacobian(robot_);
+  steps_++;
   const size_t kNumSegs = robot_->body_list.size();
+  const size_t kNumJoints = robot_->engine_list.size();
+  // the cycle is 1/f seconds and it takes 1/f/dt steps for a wave cycle. We
+  // have kNumSegs - 1 joints and it takes about 1/f/dt/kNumJoints /
+  // num_waves_ steps for the amplitudes to shift to next segments
+  double cycle_time = CH_C_2PI / omega_;
+  if (steps_ >= cycle_time / dt / kNumJoints / num_waves_) {
+    for (size_t i = 0; i < kNumJoints; ++i) {
+      average_contact_weight_(i) /= steps_;
+      amplitudes_(i) = amplitudes_(i) * average_contact_weight_(i);
+
+      average_contact_weight_(i) = 0;
+    }
+    // do a shift
+    for (size_t i = 0; i < kNumJoints - 1; ++i) {
+      amplitudes_(i) = amplitudes_(i + 1);
+    }
+    amplitudes_(kNumJoints - 1) = default_amplitude_;
+    for (size_t i = 0; i < kNumJoints; ++i) {
+      std::cout << amplitudes_(i) << " ";
+    }
+    std::cout << std::endl;
+    steps_ = 0;
+  }
+
   // Clear all the forces in the contact force container
   for (auto &force : contact_force_list_) {
     force.Set(0);
   }
   ch_system_->GetContactContainer()->ReportAllContacts2(contact_reporter_);
-
-  ChVectorDynamic<> ext_force(3 * kNumSegs);
+  ChVectorDynamic<> forces_media(3 * kNumSegs);
+  ChVectorDynamic<> forces_contact(3 * kNumSegs);
+  ChVectorDynamic<> contact_weight(kNumSegs);
   ChVector<> desired_direction = ChVector<>(1.0, 0.0, 0.0);
   ChVector<> accum_force;
   for (size_t i = 0; i < kNumSegs; ++i) {
     // get the rft_force
     auto rft_force = robot_->body_list[i]->Get_accumulated_force();
-    // std::cout << i << " " << rft_force << std::endl;
     accum_force += rft_force;
+
     // process contact forces;
+    double cos_theta = 0.0;
     double force_mag = contact_force_list_[i].Length();
-    double cos_theta = 1.0;
     if (force_mag > 1e-4) {
       contact_force_list_[i] = contact_force_list_[i] / force_mag;
       cos_theta = desired_direction.Dot(contact_force_list_[i]);
     }
-    weight_(i) = (1 + cos_theta) * 0.5;
-    // weight_(i) = sigmoid(6, -cos_theta);
+
+    contact_weight(i) = (2 - 2 * sigmoid(5, cos_theta));
     // fx
-    ext_force(3 *i + 0) =
-        contact_force_list_[i](0) * std::max(std::min(force_mag, 5.0), 0.0) +
-        0 * rft_force(0);
+    forces_contact(3 *i + 0) =
+        contact_force_list_[i](0) * std::max(std::min(force_mag, 5.0), 0.0);
+    forces_media(3 *i + 0) = rft_force(0);
     // fz
-    ext_force(3 *i + 1) =
-        contact_force_list_[i](2) * std::max(std::min(force_mag, 5.0), 0.0) +
-        0 * rft_force(2);
+    forces_contact(3 *i + 1) =
+        contact_force_list_[i](2) * std::max(std::min(force_mag, 5.0), 0.0);
+    forces_media(3 *i + 1) = rft_force(2);
     // Torque
-    ext_force(3 *i + 2) = 0;
-  }
-  // std::cout << accum_force << std::endl;
-
-  // redistribute weight to nearby joints
-  ChVectorDynamic<> weight_redist(kNumSegs);
-  double max_weight = 0;
-  for (int i = 0; i < kNumSegs; ++i) {
-    for (int j = 0; j < kNumSegs; ++j) {
-      double decay = -(j - i) * (j - i) * 0.5;
-      weight_redist(i) = weight_redist(i) + exp(decay) * weight_(j);
-    }
-    max_weight = std::max(max_weight, weight_redist(i));
+    forces_contact(3 *i + 2) = 0;
+    forces_media(3 *i + 2) = 0;
   }
 
-  if (max_weight > 0) {
-    for (size_t i = 0; i < kNumSegs; ++i) {
-      weight_(i) = weight_redist(i) / max_weight;
-      // std::cout << weight_(i) << " ";
-    }
-    // std::cout << std::endl;
-  }
+  // blend the contact weight and add the weight to amp
+  contact_weight = RedistContactWeight(contact_weight);
 
-  torques_ext_ = jacobian * ext_force;
+  for (size_t i = 0; i < kNumJoints; ++i) {
+    average_contact_weight_(i) +=
+        0.5 * (contact_weight(i) + contact_weight(i + 1));
+  }
+  auto jacobian = ComputeJacobianCoMFrame(robot_);
+  torques_media_ = jacobian * forces_media;
+  torques_contact_ = jacobian * forces_contact;
 }
 
 size_t Controller::GetNumEngines() { return robot_->engine_list.size(); }
 ChLinkEngine *Controller::GetEngine(size_t i) { return robot_->engine_list[i]; }
 
-double Controller::GetExtTorque(size_t i, double t) { return torques_ext_(i); }
-double Controller::GetExtTorqueWeight(size_t i, double t) { return weight_(i); }
-double Controller::GetPatternAngle(size_t index, double t) {
+double Controller::GetMediaTorque(size_t index, double t) {
+  return torques_media_(index);
+}
+
+double Controller::GetContactTorque(size_t index, double t) {
+  return torques_contact_(index);
+}
+
+double Controller::GetAngle(size_t index, double t) {
   const double phase =
-      double(index * 2) / robot_->engine_list.size() * CH_C_2PI;
-  double desired_angle = amplitude_ * sin(omega_ * t + phase);
+      double(index * num_waves_) / robot_->engine_list.size() * CH_C_2PI;
+  double desired_angle = default_amplitude_ * sin(omega_ * t + phase);
   return desired_angle;
 }
 
-double Controller::GetPatternAngularSpeed(size_t index, double t) {
+double Controller::GetAngularSpeed(size_t index, double t) {
   const double phase =
-      double(index * 2) / robot_->engine_list.size() * CH_C_2PI;
-  double desired_angular_speed = amplitude_ * omega_ * cos(omega_ * t + phase);
+      double(index * num_waves_) / robot_->engine_list.size() * CH_C_2PI;
+  double desired_angular_speed =
+      default_amplitude_ * omega_ * cos(omega_ * t + phase);
   return desired_angular_speed;
+}
+
+// The parameters for the function
+double ChFunctionController::Get_y(double t) {
+  double torque =
+      ComputeDriveTorque(t) + ComputeLimitTorque(t) + GetMediaTorque(t);
+  double torque_contact = GetContactTorque(t);
+  double desired_angular_speed = controller_->GetAngularSpeed(index_, t);
+  if (torque_contact * desired_angular_speed > 0) {
+    torque += 1.0 * torque_contact;
+  }
+  // torque += 1.0 * torque_contact;
+
+  torque = std::max(std::min(torque_limit, torque), -torque_limit);
+  return torque;
+}
+
+double ChFunctionController::GetContactTorque(double t) {
+  // the torque at 0th index is for CoM, so we plus 1
+  return -controller_->GetContactTorque(index_ + 1, t);
+}
+double ChFunctionController::GetMediaTorque(double t) {
+  // the torque at 0th index is for CoM, so we plus 1
+  return -controller_->GetMediaTorque(index_ + 1, t);
+}
+
+// The low level PID controller in motor.
+double ChFunctionController::ComputeDriveTorque(double t) {
+  // for a "bad" contact we decrease the local curvature
+  double desired_angle = controller_->GetAngle(index_, t);
+  double desired_angular_speed = controller_->GetAngularSpeed(index_, t);
+  double curr_angle = controller_->GetEngine(index_)->Get_mot_rot();
+  double curr_angular_speed = controller_->GetEngine(index_)->Get_mot_rot_dt();
+  // std::cout << index_ << " " << curr_angular_speed << std::endl;
+  cum_error_ += desired_angle - curr_angle;
+  double torque = p_gain * (desired_angle - curr_angle) +
+                  d_gain * (desired_angular_speed - curr_angular_speed) +
+                  cum_error_ * i_gain;
+  // torque -= 1e-3 * curr_angular_speed;
+  return torque;
+}
+
+double ChFunctionController::ComputeLimitTorque(double t) {
+  auto engine = controller_->GetEngine(index_);
+  double curr_angle = engine->Get_mot_rot();
+  double angle_limit_compliance = 1;
+  if (curr_angle > angle_limit) {
+    return -angle_limit_compliance * (curr_angle - angle_limit);
+  }
+  if (curr_angle < -angle_limit) {
+    return -angle_limit_compliance * (curr_angle - angle_limit);
+  }
+  return 0;
 }
 
 void UsePositionControl(Robot *robot) {
   auto &engine_list = robot->engine_list;
   for (size_t i = 0; i < engine_list.size(); ++i) {
     ChSharedPtr<ChFunction_Sine> engine_funct(new ChFunction_Sine(
-        double(i) * 2 / engine_list.size() * CH_C_2PI, 0.2, 0.6));
+        double(i) * 2 / engine_list.size() * CH_C_2PI, 0.2, 0.8));
     engine_list[i]->Set_eng_mode(ChLinkEngine::ENG_MODE_ROTATION);
     engine_list[i]->Set_rot_funct(engine_funct);
   }

@@ -130,8 +130,8 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
 
   // Build a snake body.
   if (true) {
-    ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
-        500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
+    ChSharedPtr<ChBodyEasyBox> ground(
+        new ChBodyEasyBox(500, 1.0, 500, 1.0, kEnableCollision, kEnableVisual));
     ground->SetBodyFixed(true);
     ground->SetPos(ChVector<>(0, -0.5, 0));
     ground->SetIdentifier(-2);
@@ -142,7 +142,7 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
     const double kL = 1.10;
     const double kW = 0.05;
     const double kLx = kL / kNumSegments;
-    ChVector<> center_pos(0.0, -kW * 0.5, 0);
+    ChVector<> center_pos(0.0, kW * 0.5, 0);
     std::vector<ChSharedBodyPtr> body_container_;
     for (size_t i = 0; i < kNumSegments; ++i) {
       ChSharedBodyPtr body_ptr;
@@ -155,8 +155,10 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
             kLx, kW, kW, kDensity, kEnableCollision, kEnableVisual));
         i_robot.body_length_list.push_back(kLx);
       }
+      // body_ptr->GetMaterialSurface()->SetFriction(0.00);
       body_ptr->SetPos(center_pos);
       body_ptr->SetIdentifier(i);
+      body_ptr->GetMaterialSurface()->SetFriction(0.1);
       ch_system->Add(body_ptr);
       i_robot.body_list.push_back(body_ptr.get());
       i_robot.rft_body_list.emplace_back(body_ptr.get());
@@ -177,7 +179,7 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
         ch_system->Add(joint_ptr);
       }
 
-      if (true) {
+      if (false) {
         // The joints that maintain the snake in plane.
         ChSharedPtr<ChLinkLockPlanePlane> inplanelink(new ChLinkLockPlanePlane);
         inplanelink->Initialize(
@@ -205,7 +207,7 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
   // Build a set of random collidables.
   if (true) {
     const size_t kGridSize = 5;
-    const double kGridDist = 0.4;
+    const double kGridDist = 0.6;
     const double kHeight = 0.2;
     const double kSigma = 0.1;
 
@@ -215,12 +217,13 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
     for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {
       for (size_t z_grid = 0; z_grid < kGridSize; ++z_grid) {
         double radius = fabs(normal_dist_radius(generator));
-        radius = 0.15;
+        radius = 0.27;
         radius = std::max(radius, 0.01);
         ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
             radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
         body_ptr->SetBodyFixed(true);
         body_ptr->SetIdentifier(-1);
+        body_ptr->GetMaterialSurface()->SetFriction(0.1);
         double x_pos = x_grid * kGridDist;
         double z_pos = (z_grid - 0.5 * kGridSize) * kGridDist;
         body_ptr->SetPos(ChVector<>(x_pos, 0, z_pos));

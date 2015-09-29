@@ -53,8 +53,10 @@ public:
     int idB = mmodelB->GetPhysicsItem()->GetIdentifier();
     if (idA == -1 || idB == -1 || idA == -2 || idB == -2)
       return true;
-    else
-      return false;
+    if (abs(idA - idB) > 1) {
+      return true;
+    }
+    return false;
   };
 };
 
@@ -82,7 +84,7 @@ int main(int argc, char *argv[]) {
   ch_system.SetIterLCPmaxItersStab(30);
   // ch_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
   ch_system.SetTol(1e-8);
-  ch_system.Set_G_acc(ChVector<>(0, -0 * 9.81, 0));
+  ch_system.Set_G_acc(ChVector<>(0, -9.81, 0));
   ChBroadPhaseCallbackNew *mcallback = new ChBroadPhaseCallbackNew;
   ch_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
 
