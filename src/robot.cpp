@@ -130,8 +130,8 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
 
   // Build a snake body.
   if (true) {
-    ChSharedPtr<ChBodyEasyBox> ground(
-        new ChBodyEasyBox(500, 1.0, 500, 1.0, kEnableCollision, kEnableVisual));
+    ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
+        500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
     ground->SetBodyFixed(true);
     ground->SetPos(ChVector<>(0, -0.5, 0));
     ground->SetIdentifier(-2);
@@ -142,7 +142,7 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
     const double kL = 1.10;
     const double kW = 0.05;
     const double kLx = kL / kNumSegments;
-    ChVector<> center_pos(0.0, kW * 0.5, 0);
+    ChVector<> center_pos(0.0, -kW * 0.5, 0);
     std::vector<ChSharedBodyPtr> body_container_;
     for (size_t i = 0; i < kNumSegments; ++i) {
       ChSharedBodyPtr body_ptr;
@@ -179,7 +179,7 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
         ch_system->Add(joint_ptr);
       }
 
-      if (false) {
+      if (true) {
         // The joints that maintain the snake in plane.
         ChSharedPtr<ChLinkLockPlanePlane> inplanelink(new ChLinkLockPlanePlane);
         inplanelink->Initialize(
@@ -206,18 +206,18 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
 
   // Build a set of random collidables.
   if (true) {
-    const size_t kGridSize = 5;
-    const double kGridDist = 0.6;
+    const size_t kGridSize = 15;
+    const double kGridDist = 0.4;
     const double kHeight = 0.2;
-    const double kSigma = 0.1;
+    const double kSigma = 0.15;
 
-    std::mt19937 generator(15);
+    std::mt19937 generator(1);
     std::normal_distribution<double> normal_dist_radius(0.0, kSigma);
 
     for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {
       for (size_t z_grid = 0; z_grid < kGridSize; ++z_grid) {
         double radius = fabs(normal_dist_radius(generator));
-        radius = 0.27;
+        // radius = 0.27;
         radius = std::max(radius, 0.01);
         ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
             radius, kHeight, kDensity, kEnableCollision, kEnableVisual));

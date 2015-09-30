@@ -320,7 +320,7 @@ RFTSystem::InteractPieceHorizontal(const chrono::ChVector<> &surface_position,
     double fnorm, fpara;
     fnorm = 1 * cospsi * abs_vel * area * (-height) * 5e4;
     fpara = 1 * sinpsi * abs_vel * area * (-height) * 5e4;
-    // ForceSand(-height, cospsi, sinpsi, area, &fnorm, &fpara);
+    ForceSand(-height, cospsi, sinpsi, area, &fnorm, &fpara);
     force = fnorm * frame_normal + fpara * frame_tangent;
   } else {
     force = ChVector<>(0.0, 0.0, 0.0);

@@ -215,10 +215,6 @@ void Controller::Step(double dt) {
       amplitudes_(i) = amplitudes_(i + 1);
     }
     amplitudes_(kNumJoints - 1) = default_amplitude_;
-    for (size_t i = 0; i < kNumJoints; ++i) {
-      std::cout << amplitudes_(i) << " ";
-    }
-    std::cout << std::endl;
     steps_ = 0;
   }
 
@@ -300,11 +296,11 @@ double Controller::GetAngularSpeed(size_t index, double t) {
 // The parameters for the function
 double ChFunctionController::Get_y(double t) {
   double torque =
-      ComputeDriveTorque(t) + ComputeLimitTorque(t) + GetMediaTorque(t);
+      ComputeDriveTorque(t) + ComputeLimitTorque(t) + 0.0 * GetMediaTorque(t);
   double torque_contact = GetContactTorque(t);
   double desired_angular_speed = controller_->GetAngularSpeed(index_, t);
   if (torque_contact * desired_angular_speed > 0) {
-    torque += 1.0 * torque_contact;
+    torque += 0.0 * torque_contact;
   }
   // torque += 1.0 * torque_contact;
 
@@ -354,7 +350,7 @@ void UsePositionControl(Robot *robot) {
   auto &engine_list = robot->engine_list;
   for (size_t i = 0; i < engine_list.size(); ++i) {
     ChSharedPtr<ChFunction_Sine> engine_funct(new ChFunction_Sine(
-        double(i) * 2 / engine_list.size() * CH_C_2PI, 0.2, 0.8));
+        double(i) * 2 / engine_list.size() * CH_C_2PI, 0.1, 0.6));
     engine_list[i]->Set_eng_mode(ChLinkEngine::ENG_MODE_ROTATION);
     engine_list[i]->Set_rot_funct(engine_funct);
   }
