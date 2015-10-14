@@ -61,173 +61,110 @@ void TransformRFTMesh(const ChFrame<> &frame, RFTMesh &mesh) {
 } // namespace
 
 Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
-  auto ch_system = ch_app->GetSystem();
   Robot i_robot;
+  auto ch_system = ch_app->GetSystem();
   const double kDensity = 2700.0;
   const bool kEnableCollision = true;
   const bool kEnableVisual = true;
+  const double lfact = 1e2;
+  const double rhofact = 1e3;
+  ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
+      20, 0.05, 20, kDensity, kEnableCollision, kEnableVisual));
+  const double bodyheight = 30. / lfact;
+  ChSharedPtr<ChColorAsset> ground_color(new ChColorAsset);
+  ground_color->SetColor(ChColor(0.3, 0.25, 0.15, 0.3));
+  ground->AddAsset(ground_color);
+  // ChSharedPtr<ChColorAsset> mcolor(new ChColorAsset);
+  // mcolor->SetColor(ChColor(0.2f, 0.8f, 0.2f));
+  // ground->AddAsset(mcolor);
 
-  if (false) {
-    ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
-        500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
-    ground->SetBodyFixed(true);
-    ground->SetPos(ChVector<>(0, -0.6, 0));
-    ground->SetIdentifier(-1);
-    ground->GetMaterialSurface()->SetFriction(0.1);
-    ch_system->Add(ground);
+  ground->SetPos(ChVector<>(0, 0, 0.));
+  ground->SetBodyFixed(true);
+  ground->SetId(-1);
+  ground->SetIdentifier(-1);
+  ch_system->AddBody(ground);
 
-    const double kL = 0.20;
-    const double kW = 0.02;
-    ChSharedPtr<ChBodyEasyBox> link_1(new ChBodyEasyBox(
-        kL, kW, kW, kDensity, kEnableCollision, kEnableVisual));
-    link_1->SetPos(ChVector<>(kL * 0.5, 0, 0));
-    ch_system->Add(link_1);
-    i_robot.body_list.push_back(link_1.get());
-    i_robot.body_length_list.push_back(kL);
+  // create a torque controlled robot
+  {
+    ChSharedPtr<ChBodyEasyBox> upperframe(new ChBodyEasyBox(
+        2. / lfact, 2. / lfact, 15. / lfact, 7. * rhofact, true));
+    ch_system->AddBody(upperframe);
+    upperframe->SetPos(ChVector<>(0, bodyheight, 0.));
+    upperframe->SetId(0);
+    upperframe->SetBodyFixed(true);
+    ChSharedPtr<ChTexture> leg_texture(new ChTexture);
+    leg_texture->SetTextureFilename(
+        "/usr/local/chrono/data/cubetexture_borders.png");
+    upperframe->AddAsset(leg_texture);
+    // upperframe->SetBodyFixed(true);
+    ChSharedPtr<ChLinkLockOldham> inplanelink(new ChLinkLockOldham);
+    inplanelink->Initialize(ground, upperframe, ChCoordsys<>(ChVector<>()));
+    ch_system->AddLink(inplanelink);
 
-    ChSharedPtr<ChLinkEngine> joint_1(new ChLinkEngine);
-    joint_1->Initialize(link_1, ground,
-                        ChCoordsys<>(ChVector<>(), Q_from_AngX(CH_C_PI_2)));
-    ch_system->Add(joint_1);
-    i_robot.engine_list.push_back(joint_1.get());
+    const double leglen[4] = {7.57 / lfact, 7.77 / lfact, 7.48 / lfact,
+                              3.40 / lfact};
+    const double jnt_angles[] = {0.9647466202,  -1.7087647716, 1.3293575652,
+                                 -0.3548684919, -0.2016915259, -1.6153386499,
+                                 1.2546486350,  -0.1591937412};
+    const ChQuaternion<> qter = Q_from_AngZ(-CH_C_PI_2);
+    std::vector<ChSharedPtr<ChBody>> legcontainer(8);
 
-    ChSharedPtr<ChBodyEasyBox> link_2(new ChBodyEasyBox(
-        kL, kW, kW, kDensity, kEnableCollision, kEnableVisual));
-    link_2->SetPos(ChVector<>(kL * 1.5, 0, 0));
-    ch_system->Add(link_2);
-    i_robot.body_list.push_back(link_2.get());
-    i_robot.body_length_list.push_back(kL);
+    for (int j = 0; j < 2; ++j) {
+      double z_step = -7.5 / lfact;
+      if (j == 1)
+        z_step = -z_step;
+      double y_step = bodyheight + leglen[0] / 2.;
+      for (int k = 0; k < 4; ++k) {
 
-    ChSharedPtr<ChLinkEngine> joint_2(new ChLinkEngine);
-    joint_2->Initialize(link_2, link_1, ChCoordsys<>(ChVector<>(kL, 0, 0),
-                                                     Q_from_AngX(CH_C_PI_2)));
-    ch_system->Add(joint_2);
-    i_robot.engine_list.push_back(joint_2.get());
+        double x_step = 0. / lfact;
+        if (k == 0)
+          y_step = y_step - leglen[k];
+        else
+          y_step = y_step - 0.5 * (leglen[k] + leglen[k - 1]);
+        double legw = 2.0 / lfact;
+        double legh = 2.0 / lfact;
+        if (k == 3) {
+          legw = 8.0 / lfact;
+          std::vector<ChVector<>> points;
+          for (int lidx = -1; lidx <= 1; lidx += 2) {
+            double z_shift = legw * 0.5 * lidx;
+            points.emplace_back(0, legw * 0.5, z_shift);
+            points.emplace_back(0, -legw * 0.5, z_shift);
+            points.emplace_back(-leglen[k], 0, z_shift);
+          }
+          legcontainer[j * 4 + k] = ChSharedPtr<ChBodyEasyConvexHull>(
+              new ChBodyEasyConvexHull(points, 5. * rhofact, true));
+        } else {
+          legcontainer[j * 4 + k] = ChSharedPtr<ChBodyEasyBox>(
+              new ChBodyEasyBox(leglen[k], legw, legw, 5. * rhofact, true));
+        }
+        ChSharedPtr<ChTexture> leg_texture(new ChTexture);
+        leg_texture->SetTextureFilename(
+            "/usr/local/chrono/data/cubetexture_borders.png");
+        legcontainer[j * 4 + k]->AddAsset(leg_texture);
+        legcontainer[j * 4 + k]->SetRot(qter);
+        legcontainer[j * 4 + k]->SetPos(ChVector<>(x_step, y_step, z_step));
+        legcontainer[j * 4 + k]->SetId(j * 4 + k + 1);
+        ch_system->AddBody(legcontainer[j * 4 + k]);
 
-    if (true) {
-      ChSharedPtr<ChBodyEasyBox> link_1(
-          new ChBodyEasyBox(kW, kW, kW, 1.0, !kEnableCollision, kEnableVisual));
-      link_1->SetPos(ChVector<>(4 * kL, 0, 0));
-      link_1->SetBodyFixed(true);
-      link_1->AddAsset(ChSharedPtr<ChColorAsset>(new ChColorAsset(1, 0, 0)));
-      ch_system->Add(link_1);
-
-      ChSharedPtr<ChBodyEasyBox> link_2(
-          new ChBodyEasyBox(kW, kW, kW, 1.0, !kEnableCollision, kEnableVisual));
-      link_2->SetPos(ChVector<>(0, 4 * kL, 0));
-      link_2->SetBodyFixed(true);
-      link_2->AddAsset(ChSharedPtr<ChColorAsset>(new ChColorAsset(0, 1, 0)));
-      ch_system->Add(link_2);
-
-      ChSharedPtr<ChBodyEasyBox> link_3(
-          new ChBodyEasyBox(kW, kW, kW, 1.0, !kEnableCollision, kEnableVisual));
-      link_3->SetPos(ChVector<>(0, 0, 4 * kL));
-      link_3->SetBodyFixed(true);
-      link_3->AddAsset(ChSharedPtr<ChColorAsset>(new ChColorAsset(0, 0, 1)));
-      ch_system->Add(link_3);
-    }
-  }
-
-  // Build a snake body.
-  if (true) {
-    ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
-        500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
-    ground->SetBodyFixed(true);
-    ground->SetPos(ChVector<>(0, -0.5, 0));
-    ground->SetIdentifier(-2);
-    ground->GetMaterialSurface()->SetFriction(0.1);
-    ch_system->Add(ground);
-    // the Snake params
-    const size_t kNumSegments = 25;
-    const double kL = 1.10;
-    const double kW = 0.05;
-    const double kLx = kL / kNumSegments;
-    ChVector<> center_pos(0.0, -kW * 0.5, 0);
-    std::vector<ChSharedBodyPtr> body_container_;
-    for (size_t i = 0; i < kNumSegments; ++i) {
-      ChSharedBodyPtr body_ptr;
-      if (i == kNumSegments - 1) {
-        body_ptr = ChSharedBodyPtr(new ChBodyEasyCylinder(
-            kW * 0.5, kW, kDensity, kEnableCollision, kEnableVisual));
-        i_robot.body_length_list.push_back(kW);
-      } else {
-        body_ptr = ChSharedBodyPtr(new ChBodyEasyBox(
-            kLx, kW, kW, kDensity, kEnableCollision, kEnableVisual));
-        i_robot.body_length_list.push_back(kLx);
-      }
-      // body_ptr->GetMaterialSurface()->SetFriction(0.00);
-      body_ptr->SetPos(center_pos);
-      body_ptr->SetIdentifier(i);
-      body_ptr->GetMaterialSurface()->SetFriction(0.1);
-      ch_system->Add(body_ptr);
-      i_robot.body_list.push_back(body_ptr.get());
-      i_robot.rft_body_list.emplace_back(body_ptr.get());
-      // Buid the RFT body
-      i_robot.rft_body_list.back().mesh = MeshRFTSquare(kLx, kW, true);
-      i_robot.rft_body_list.back().forces.resize(
-          i_robot.rft_body_list.back().mesh.positions.size());
-      body_container_.push_back(body_ptr);
-      // The engines.
-      if (i > 0) {
-        ChSharedPtr<ChLinkEngine> joint_ptr(new ChLinkEngine());
-        ChVector<> position = center_pos - ChVector<>(0.5 * kLx, 0, 0);
-        ChQuaternion<> orientation(Q_from_AngX(CH_C_PI_2));
-        joint_ptr->Initialize(body_container_[i], body_container_[i - 1],
-                              ChCoordsys<>(position, orientation));
-        i_robot.engine_list.push_back(joint_ptr.get());
-        joint_ptr->SetIdentifier(i);
-        ch_system->Add(joint_ptr);
-      }
-
-      if (true) {
-        // The joints that maintain the snake in plane.
-        ChSharedPtr<ChLinkLockPlanePlane> inplanelink(new ChLinkLockPlanePlane);
-        inplanelink->Initialize(
-            ground, body_ptr,
-            ChCoordsys<>(ChVector<>(), Q_from_AngX(CH_C_PI_2)));
-        ch_system->Add(inplanelink);
-      }
-
-      if (false) {
-        // Add a cylinder at the joint.
-        ChSharedPtr<ChBodyEasyCylinder> cylinder_ptr(new ChBodyEasyCylinder(
-            kW * 0.5, kW, kDensity, kEnableCollision, kEnableVisual));
-        cylinder_ptr->SetPos(center_pos + ChVector<>(kLx * 0.5, 0, 0));
-        cylinder_ptr->SetIdentifier(i + 100);
-        ch_system->Add(cylinder_ptr);
-        ChSharedPtr<ChLinkLockLock> link(new ChLinkLockLock);
-        link->Initialize(body_ptr, cylinder_ptr, ChCoordsys<>(VNULL));
-        ch_system->Add(link);
-      }
-
-      center_pos += ChVector<>(kLx, 0, 0);
-    }
-  }
-
-  // Build a set of random collidables.
-  if (true) {
-    const size_t kGridSize = 15;
-    const double kGridDist = 0.4;
-    const double kHeight = 0.2;
-    const double kSigma = 0.15;
-
-    std::mt19937 generator(1);
-    std::normal_distribution<double> normal_dist_radius(0.0, kSigma);
-
-    for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {
-      for (size_t z_grid = 0; z_grid < kGridSize; ++z_grid) {
-        double radius = fabs(normal_dist_radius(generator));
-        // radius = 0.27;
-        radius = std::max(radius, 0.01);
-        ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
-            radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
-        body_ptr->SetBodyFixed(true);
-        body_ptr->SetIdentifier(-1);
-        body_ptr->GetMaterialSurface()->SetFriction(0.1);
-        double x_pos = x_grid * kGridDist;
-        double z_pos = (z_grid - 0.5 * kGridSize) * kGridDist;
-        body_ptr->SetPos(ChVector<>(x_pos, 0, z_pos));
-        ch_system->Add(body_ptr);
+        ChSharedPtr<ChLinkEngine> mylink(new ChLinkEngine);
+        if (k == 0)
+          mylink->Initialize(legcontainer[j * 4 + k], upperframe,
+                             ChCoordsys<>(ChVector<>(
+                                 x_step, y_step + leglen[k] / 2.0, z_step)));
+        else
+          mylink->Initialize(legcontainer[j * 4 + k],
+                             legcontainer[j * 4 + k - 1],
+                             ChCoordsys<>(ChVector<>(
+                                 x_step, y_step + leglen[k] / 2.0, z_step)));
+        mylink->Set_eng_mode(ChLinkEngine::ENG_MODE_ROTATION);
+        ChSharedPtr<ChFunction_Const> joint_function(
+            new ChFunction_Const(jnt_angles[j * 4 + k]));
+        // ChFunction_Data *funptr = new ChFunction_Data(data);
+        // funptr->SetColumn(j * 4 + k + 1);
+        // mylink->Set_rot_funct(funptr);
+        mylink->Set_rot_funct(joint_function);
+        ch_system->AddLink(mylink);
       }
     }
   }

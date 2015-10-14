@@ -53,9 +53,6 @@ public:
     int idB = mmodelB->GetPhysicsItem()->GetIdentifier();
     if (idA == -1 || idB == -1 || idA == -2 || idB == -2)
       return true;
-    if (abs(idA - idB) > 1) {
-      return true;
-    }
     return false;
   };
 };
@@ -84,20 +81,20 @@ int main(int argc, char *argv[]) {
   ch_system.SetIterLCPmaxItersStab(30);
   // ch_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
   ch_system.SetTol(1e-8);
-  ch_system.Set_G_acc(ChVector<>(0, 0.0, 0));
+  ch_system.Set_G_acc(ChVector<>(0, -9.8, 0));
   ChBroadPhaseCallbackNew *mcallback = new ChBroadPhaseCallbackNew;
   ch_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
 
   // create a gui ch_app with the chrono system
   ChIrrApp ch_app(&ch_system, L"A simple RFT example",
-                  core::dimension2d<u32>(650, 650), false, true,
+                  core::dimension2d<u32>(600, 600), false, true,
                   video::EDT_OPENGL);
   ChIrrWizard::add_typical_Logo(ch_app.GetDevice());
   ChIrrWizard::add_typical_Sky(ch_app.GetDevice());
   ChIrrWizard::add_typical_Lights(ch_app.GetDevice());
   ChIrrWizard::add_typical_Camera(ch_app.GetDevice(),
-                                  core::vector3df(3.0, 6, 0),
-                                  core::vector3df(3.1, 0, 0));
+                                  core::vector3df(0.5, 0.5, -0.5),
+                                  core::vector3df(0.1, 0.2, -0.1));
   scene::ICameraSceneNode *cur_cam =
       ch_app.GetSceneManager()->getActiveCamera();
   // cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
@@ -109,7 +106,7 @@ int main(int argc, char *argv[]) {
   // now let us build the robot_builder;
 
   Robot i_robot = BuildRobotAndWorld(&ch_app, Json::Value());
-  UsePositionControl(&i_robot);
+  // UsePositionControl(&i_robot);
   // get all the RFT body_list to interact
   // std::vector<RFTBody> &body_list = robot_builder.getRFTBodyList();
 
@@ -121,12 +118,12 @@ int main(int argc, char *argv[]) {
   // begin simulation
 
   int count = 0;
-  int save_step = 4e-2 / ch_app.GetTimestep();
+  int save_step = 1e-1 / ch_app.GetTimestep();
   // screen capture?
 
   // Assemble the robot
 
-  while (ch_system.GetChTime() < 1.0) {
+  while (ch_system.GetChTime() < 0.0) {
     ch_app.DoStep();
     std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
               << std::endl;
@@ -134,12 +131,12 @@ int main(int argc, char *argv[]) {
 
   // Switch to controller
   Controller controller(&ch_system, &i_robot);
-  UseController(&controller);
+  // UseController(&controller);
 
   ch_app.SetVideoframeSave(true);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 200.0) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 100.0) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();
