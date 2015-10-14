@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
 
   // create a gui ch_app with the chrono system
   ChIrrApp ch_app(&ch_system, L"A simple RFT example",
-                  core::dimension2d<u32>(600, 600), false, true,
+                  core::dimension2d<u32>(800, 800), false, true,
                   video::EDT_OPENGL);
   ChIrrWizard::add_typical_Logo(ch_app.GetDevice());
   ChIrrWizard::add_typical_Sky(ch_app.GetDevice());

@@ -101,13 +101,13 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
     inplanelink->Initialize(ground, upperframe, ChCoordsys<>(ChVector<>()));
     ch_system->AddLink(inplanelink);
 
-    const double leglen[4] = {7.57 / lfact, 7.77 / lfact, 7.48 / lfact,
-                              3.40 / lfact};
-    const double jnt_angles[] = {0.9647466202,  -1.7087647716, 1.3293575652,
-                                 -0.3548684919, -0.2016915259, -1.6153386499,
-                                 1.2546486350,  -0.1591937412};
+    const double leglen[4] = { 7.57 / lfact, 7.77 / lfact,
+                               7.48 / lfact, 3.40 / lfact };
+    const double jnt_angles[] = { 0.9647466202,  -1.7087647716, 1.3293575652,
+                                  -0.3548684919, -0.7016915259, -1.6153386499,
+                                  1.2546486350,  -0.3591937412 };
     const ChQuaternion<> qter = Q_from_AngZ(-CH_C_PI_2);
-    std::vector<ChSharedPtr<ChBody>> legcontainer(8);
+    std::vector<ChSharedPtr<ChBody> > legcontainer(8);
 
     for (int j = 0; j < 2; ++j) {
       double z_step = -7.5 / lfact;
@@ -125,7 +125,7 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
         double legh = 2.0 / lfact;
         if (k == 3) {
           legw = 8.0 / lfact;
-          std::vector<ChVector<>> points;
+          std::vector<ChVector<> > points;
           for (int lidx = -1; lidx <= 1; lidx += 2) {
             double z_shift = legw * 0.5 * lidx;
             points.emplace_back(0, legw * 0.5, z_shift);
