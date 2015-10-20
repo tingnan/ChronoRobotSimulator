@@ -10,55 +10,98 @@ namespace {
 
 double sigmoid(double sigma, double x) { return 1 / (1 + exp(-sigma * x)); }
 
-chrono::ChMatrixDynamic<> ComputeJacobianCoMFrame(Robot *robot) {
-  const size_t kNumSegs = robot->body_list.size();
+double GetBodyXYPlaneAngle(ChBody *body_ptr) {
+  double angle;
+  ChVector<> axis;
+  body_ptr->GetRot().Q_to_AngAxis(angle, axis);
+  if (axis(2) < 0) {
+    angle = -angle;
+  }
+  return angle;
+}
+
+Eigen::MatrixXd ChainJacobianDx(const std::vector<double> &body_length_list,
+                                const Eigen::VectorXd &sin_thetas) {
+  const size_t kNumSegs = body_length_list.size();
+  Eigen::MatrixXd jacobian_dx(kNumSegs, kNumSegs + 2);
+  jacobian_dx.setZero();
+  for (size_t i = 0; i < kNumSegs; ++i) {
+    double l = body_length_list[i];
+    jacobian_dx(i, i) = -0.5 * l * sin_thetas(i);
+    jacobian_dx(i, kNumSegs) = 1;
+    for (int j = i - 1; j >= 0; --j) {
+      double l = body_length_list[j];
+      jacobian_dx(i, j) = jacobian_dx(i, j + 1) - l * sin_thetas(j);
+    }
+  }
+  return jacobian_dx;
+}
+
+Eigen::MatrixXd ChainJacobianDy(const std::vector<double> &body_length_list,
+                                const Eigen::VectorXd &cos_thetas) {
+  const size_t kNumSegs = body_length_list.size();
+  Eigen::MatrixXd jacobian_dy(kNumSegs, kNumSegs + 2);
+  jacobian_dy.setZero();
+  for (size_t i = 0; i < kNumSegs; ++i) {
+    double l = body_length_list[i];
+    jacobian_dy(i, i) = 0.5 * l * cos_thetas(i);
+    jacobian_dy(i, kNumSegs + 1) = 1;
+    for (int j = i - 1; j >= 0; --j) {
+      double l = body_length_list[j];
+      jacobian_dy(i, j) = jacobian_dy(i, j + 1) + l * cos_thetas(j);
+    }
+  }
+  return jacobian_dy;
+}
+
+Eigen::MatrixXd ChainJacobianDw(const std::vector<double> &body_length_list) {
+  const size_t kNumSegs = body_length_list.size();
+  Eigen::MatrixXd jacobian_dw(kNumSegs, kNumSegs + 2);
+  jacobian_dw.setZero();
+  for (size_t i = 0; i < kNumSegs; ++i) {
+    for (size_t j = 0; j <= i; ++j) {
+      jacobian_dw(i, j) = 1;
+    }
+  }
+  return jacobian_dw;
+}
+
+chrono::ChMatrixDynamic<>
+ComputeChainJacobianTailFrame(const std::vector<ChBody *> &body_list,
+                              const std::vector<double> &body_length_list) {
+  const size_t kNumSegs = body_list.size();
   Eigen::VectorXd thetas(kNumSegs);
   thetas.setZero();
   for (size_t i = 0; i < kNumSegs; ++i) {
-    auto body_ptr = robot->body_list[i];
-    auto rot_quoternion = body_ptr->GetRot();
-    double angle;
-    ChVector<> axis;
-    rot_quoternion.Q_to_AngAxis(angle, axis);
-    if (axis(2) < 0) {
-      angle = -angle;
-    }
-    thetas(i) = angle;
+    thetas(i) = GetBodyXYPlaneAngle(body_list[i]);
   }
 
   Eigen::VectorXd sin_thetas(kNumSegs);
   Eigen::VectorXd cos_thetas(kNumSegs);
   for (size_t j = 0; j < kNumSegs; ++j) {
-    // use thetas instead of theta for pendulumn
     sin_thetas(j) = sin(thetas(j));
     cos_thetas(j) = cos(thetas(j));
   }
+  auto jacobian_dx = ChainJacobianDx(body_length_list, sin_thetas);
+  auto jacobian_dy = ChainJacobianDy(body_length_list, cos_thetas);
+  auto jacobian_dw = ChainJacobianDw(body_length_list);
 
-  // Now compute the jacobian, each line has n + 2 columns
-  Eigen::MatrixXd jacobian_dx(kNumSegs, kNumSegs + 2);
-  jacobian_dx.setZero();
-  Eigen::MatrixXd jacobian_dy(kNumSegs, kNumSegs + 2);
-  jacobian_dy.setZero();
-  Eigen::MatrixXd jacobian_dt(kNumSegs, kNumSegs + 2);
-  jacobian_dt.setZero();
+  chrono::ChMatrixDynamic<> jacobian(3 * kNumSegs, kNumSegs);
+  // Fill the elements (partial x_i, y_i / partial theta_j)
   for (size_t i = 0; i < kNumSegs; ++i) {
-    // the jth link is the end effector
-    double l = robot->body_length_list[i];
-    jacobian_dx(i, i) = 0 - 0.5 * l * sin_thetas(i);
-    jacobian_dx(i, kNumSegs + 0) = 1;
-    jacobian_dy(i, i) = 0 + 0.5 * l * cos_thetas(i);
-    jacobian_dy(i, kNumSegs + 1) = 1;
-    jacobian_dt(i, i) = 1;
-    for (int j = i - 1; j >= 0; --j) {
-      double l = robot->body_length_list[j];
-      jacobian_dx(i, j) = jacobian_dx(i, j + 1) - l * sin_thetas(j);
-      jacobian_dy(i, j) = jacobian_dy(i, j + 1) + l * cos_thetas(j);
-      jacobian_dt(i, j) = 1;
+    for (size_t j = 0; j < kNumSegs; ++j) {
+      jacobian(3 * i + 0, j) = jacobian_dx(i, j);
+      jacobian(3 * i + 1, j) = jacobian_dy(i, j);
+      jacobian(3 * i + 2, j) = jacobian_dw(i, j);
     }
   }
-  // std::cout << jacobian_dy << std::endl;
-  // std::cout << jacobian_dt << std::endl;
+  jacobian.MatrTranspose();
+  return jacobian;
+}
 
+Eigen::MatrixXd ChainJacobianCoMTransform(const Eigen::MatrixXd &jacobian_dx,
+                                          const Eigen::MatrixXd &jacobian_dy) {
+  const size_t kNumSegs = jacobian_dx.rows();
   Eigen::MatrixXd jacobian_th(kNumSegs, kNumSegs);
   jacobian_th.setIdentity();
   for (size_t j = 1; j < kNumSegs; ++j) {
@@ -86,22 +129,42 @@ chrono::ChMatrixDynamic<> ComputeJacobianCoMFrame(Robot *robot) {
   jj.block(kNumSegs + 1, 0, 1, kNumSegs) = jacobian_dy_row_mean.transpose();
   jj(kNumSegs, kNumSegs) = 1;
   jj(kNumSegs + 1, kNumSegs + 1) = 1;
-  // std::cout << jj << std::endl;
+  return jj;
+}
 
+chrono::ChMatrixDynamic<>
+ComputeChainJacobianCoMFrame(const std::vector<ChBody *> &body_list,
+                             const std::vector<double> &body_length_list) {
+  const size_t kNumSegs = body_list.size();
+  Eigen::VectorXd thetas(kNumSegs);
+  thetas.setZero();
+  for (size_t i = 0; i < kNumSegs; ++i) {
+    thetas(i) = GetBodyXYPlaneAngle(body_list[i]);
+  }
+
+  Eigen::VectorXd sin_thetas(kNumSegs);
+  Eigen::VectorXd cos_thetas(kNumSegs);
+  for (size_t j = 0; j < kNumSegs; ++j) {
+    sin_thetas(j) = sin(thetas(j));
+    cos_thetas(j) = cos(thetas(j));
+  }
+  auto jacobian_dx = ChainJacobianDx(body_length_list, sin_thetas);
+  auto jacobian_dy = ChainJacobianDy(body_length_list, cos_thetas);
+  auto jacobian_dw = ChainJacobianDw(body_length_list);
+
+  auto jj = ChainJacobianCoMTransform(jacobian_dx, jacobian_dy);
   jacobian_dx = jacobian_dx * jj;
   jacobian_dy = jacobian_dy * jj;
-  jacobian_dt = jacobian_dt * jj;
+  jacobian_dw = jacobian_dw * jj;
 
-  // std::cout << jacobian_dy << std::endl;
-  // std::cout << jacobian_dt << std::endl;
-
+  // convert to chrono matrix
   chrono::ChMatrixDynamic<> jacobian(3 * kNumSegs, kNumSegs);
   // Fill the elements (partial x_i, y_i / partial theta_j)
   for (size_t i = 0; i < kNumSegs; ++i) {
     for (size_t j = 0; j < kNumSegs; ++j) {
       jacobian(3 * i + 0, j) = jacobian_dx(i, j);
       jacobian(3 * i + 1, j) = jacobian_dy(i, j);
-      jacobian(3 * i + 2, j) = jacobian_dt(i, j);
+      jacobian(3 * i + 2, j) = jacobian_dw(i, j);
     }
   }
   jacobian.MatrTranspose();
@@ -262,9 +325,9 @@ void Controller::Step(double dt) {
     average_contact_weight_(i) +=
         0.5 * (contact_weight(i) + contact_weight(i + 1));
   }
-  auto jacobian = ComputeJacobianCoMFrame(robot_);
-  torques_media_ = jacobian * forces_media;
-  torques_contact_ = jacobian * forces_contact;
+  // auto jacobian = ComputeJacobianCoMFrame(robot_);
+  // torques_media_ = jacobian * forces_media;
+  // torques_contact_ = jacobian * forces_contact;
 }
 
 size_t Controller::GetNumEngines() { return robot_->engine_list.size(); }

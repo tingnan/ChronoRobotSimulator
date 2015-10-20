@@ -101,5 +101,19 @@ Mqc = Jct*M*Jc;
 
 %%
 f = [0;0.3;0;-1;0;1;0;-0.3];
-Qv = Jcvt*f;
-linsolve(Mqc, Qv);
+Qvc = Jcvt*f;
+linsolve(Mqc, Qvc);
+Qv = Jvt*f;
+%%
+
+MM = Mq;
+QQ = Qv;
+
+M3 = [MM(1,1),MM(1,n+1:n+2); 
+      MM(n+1:n+2,1),MM(n+1:n+2, n+1:n+2)];
+Q3 = [QQ(1);QQ(n+1:n+2)];
+q3 = linsolve(M3, Q3);
+
+
+Qint = [MM(1:end,1),MM(1:end,n+1:n+2)]*q3 - QQ;
+linsolve(MM, QQ + Qint)
