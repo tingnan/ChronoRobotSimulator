@@ -211,7 +211,7 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
     const double kHeight = 0.2;
     const double kSigma = 0.15;
 
-    std::mt19937 generator(1);
+    std::mt19937 generator(0);
     std::normal_distribution<double> normal_dist_radius(0.0, kSigma);
 
     for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {

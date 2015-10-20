@@ -66,7 +66,7 @@ Eigen::MatrixXd ChainJacobianDw(const std::vector<double> &body_length_list) {
   return jacobian_dw;
 }
 
-chrono::ChMatrixDynamic<>
+Eigen::MatrixXd
 ComputeChainJacobianTailFrame(const std::vector<ChBody *> &body_list,
                               const std::vector<double> &body_length_list) {
   const size_t kNumSegs = body_list.size();
@@ -86,16 +86,15 @@ ComputeChainJacobianTailFrame(const std::vector<ChBody *> &body_list,
   auto jacobian_dy = ChainJacobianDy(body_length_list, cos_thetas);
   auto jacobian_dw = ChainJacobianDw(body_length_list);
 
-  chrono::ChMatrixDynamic<> jacobian(3 * kNumSegs, kNumSegs);
-  // Fill the elements (partial x_i, y_i / partial theta_j)
+  Eigen::MatrixXd jacobian(3 * kNumSegs, kNumSegs + 2);
+  // Fill the elements (partial x_i, y_i, theta_i / partial q_j)
   for (size_t i = 0; i < kNumSegs; ++i) {
-    for (size_t j = 0; j < kNumSegs; ++j) {
+    for (size_t j = 0; j < kNumSegs + 2; ++j) {
       jacobian(3 * i + 0, j) = jacobian_dx(i, j);
       jacobian(3 * i + 1, j) = jacobian_dy(i, j);
       jacobian(3 * i + 2, j) = jacobian_dw(i, j);
     }
   }
-  jacobian.MatrTranspose();
   return jacobian;
 }
 
@@ -132,7 +131,7 @@ Eigen::MatrixXd ChainJacobianCoMTransform(const Eigen::MatrixXd &jacobian_dx,
   return jj;
 }
 
-chrono::ChMatrixDynamic<>
+Eigen::MatrixXd
 ComputeChainJacobianCoMFrame(const std::vector<ChBody *> &body_list,
                              const std::vector<double> &body_length_list) {
   const size_t kNumSegs = body_list.size();
@@ -157,18 +156,42 @@ ComputeChainJacobianCoMFrame(const std::vector<ChBody *> &body_list,
   jacobian_dy = jacobian_dy * jj;
   jacobian_dw = jacobian_dw * jj;
 
-  // convert to chrono matrix
-  chrono::ChMatrixDynamic<> jacobian(3 * kNumSegs, kNumSegs);
+  Eigen::MatrixXd jacobian(3 * kNumSegs, kNumSegs + 2);
   // Fill the elements (partial x_i, y_i / partial theta_j)
   for (size_t i = 0; i < kNumSegs; ++i) {
-    for (size_t j = 0; j < kNumSegs; ++j) {
+    for (size_t j = 0; j < kNumSegs + 2; ++j) {
       jacobian(3 * i + 0, j) = jacobian_dx(i, j);
       jacobian(3 * i + 1, j) = jacobian_dy(i, j);
       jacobian(3 * i + 2, j) = jacobian_dw(i, j);
     }
   }
-  jacobian.MatrTranspose();
   return jacobian;
+}
+
+Eigen::VectorXd SolveChainInternalTorque(const Eigen::MatrixXd &inertia,
+                                         const Eigen::MatrixXd &jacobian,
+                                         const Eigen::VectorXd &f_ext) {
+
+  Eigen::MatrixXd inertia_q = jacobian.transpose() * inertia * jacobian;
+  Eigen::VectorXd generalized_force = jacobian.transpose() * f_ext;
+  Eigen::Matrix3d inertia_com;
+  inertia_com(0, 0) = inertia_q(0, 0);
+  const size_t kSegs = inertia_q.rows() - 2;
+  inertia_com.block<1, 2>(0, 1) = inertia_q.block<1, 2>(0, kSegs);
+  inertia_com.block<2, 1>(1, 0) = inertia_q.block<2, 1>(kSegs, 0);
+  inertia_com.block<2, 2>(1, 1) = inertia_q.block<2, 2>(kSegs, kSegs);
+  Eigen::Vector3d generalized_force_com;
+  generalized_force_com << generalized_force(0), generalized_force(kSegs),
+      generalized_force(kSegs + 1);
+  Eigen::Vector3d com_motion = inertia_com.ldlt().solve(generalized_force_com);
+  Eigen::MatrixXd reduced_mat(inertia_q.rows(), 3);
+  reduced_mat.col(0) = inertia_q.col(0);
+  reduced_mat.col(1) = inertia_q.col(kSegs);
+  reduced_mat.col(2) = inertia_q.col(kSegs + 1);
+  Eigen::VectorXd interal_torques =
+      reduced_mat * com_motion - generalized_force;
+  std::cout << interal_torques.transpose() << std::endl;
+  return interal_torques;
 }
 
 chrono::ChVectorDynamic<>
@@ -259,6 +282,10 @@ Controller::Controller(chrono::ChSystem *ch_system, class Robot *i_robot)
 }
 
 void Controller::Step(double dt) {
+
+  // SolveChainInternalTorque();
+  // exit(0);
+
   steps_++;
   const size_t kNumSegs = robot_->body_list.size();
   const size_t kNumJoints = robot_->engine_list.size();
@@ -325,7 +352,8 @@ void Controller::Step(double dt) {
     average_contact_weight_(i) +=
         0.5 * (contact_weight(i) + contact_weight(i + 1));
   }
-  // auto jacobian = ComputeJacobianCoMFrame(robot_);
+  auto jacobian =
+      ComputeChainJacobianCoMFrame(robot_->body_list, robot_->body_length_list);
   // torques_media_ = jacobian * forces_media;
   // torques_contact_ = jacobian * forces_contact;
 }
@@ -358,13 +386,14 @@ double Controller::GetAngularSpeed(size_t index, double t) {
 
 // The parameters for the function
 double ChFunctionController::Get_y(double t) {
-  double torque =
-      ComputeDriveTorque(t) + ComputeLimitTorque(t) + 0.0 * GetMediaTorque(t);
-  double torque_contact = GetContactTorque(t);
-  double desired_angular_speed = controller_->GetAngularSpeed(index_, t);
-  if (torque_contact * desired_angular_speed > 0) {
-    torque += 0.0 * torque_contact;
-  }
+  double torque = ComputeDriveTorque(t) + ComputeLimitTorque(t);
+  /*
+double torque_contact = GetContactTorque(t);
+double desired_angular_speed = controller_->GetAngularSpeed(index_, t);
+if (torque_contact * desired_angular_speed > 0) {
+torque += 0.0 * torque_contact;
+}
+  */
   // torque += 1.0 * torque_contact;
 
   torque = std::max(std::min(torque_limit, torque), -torque_limit);
