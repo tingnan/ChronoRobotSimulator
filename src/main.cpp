@@ -1,11 +1,11 @@
-#include <unit_IRRLICHT/ChIrrApp.h>
+#include <chrono_irrlicht/ChIrrApp.h>
 #include <motion_functions/ChFunction_Sine.h>
 
 #include "json/json.h"
 #include "include/rft.h"
 #include "include/gui.h"
 #include "include/robot.h"
-#include "include/chfunction_controller.h"
+#include "include/controller.h"
 #include "include/chrono_io.h"
 
 namespace {
@@ -51,10 +51,12 @@ public:
                      ) {
     int idA = mmodelA->GetPhysicsItem()->GetIdentifier();
     int idB = mmodelB->GetPhysicsItem()->GetIdentifier();
-    if ((idA == -1 && idB != -1) || (idB == -1 && idA != -1))
+    if (idA == -1 || idB == -1 || idA == -2 || idB == -2)
       return true;
-    else
-      return false;
+    if (abs(idA - idB) > 1) {
+      return true;
+    }
+    return false;
   };
 };
 
@@ -62,27 +64,6 @@ void ApplyRFTForce(std::vector<RFTBody> &rft_body_list, RFTSystem &rsystem) {
   const size_t kNumBodies = rft_body_list.size();
   for (unsigned int i = 0; i < kNumBodies; ++i) {
     rsystem.InteractExt(rft_body_list[i]);
-  }
-}
-
-void UseController(ChSystem *ch_system, Robot *robot) {
-  auto &engine_list = robot->engine_list;
-  auto &body_list = robot->body_list;
-  for (size_t i = 0; i < engine_list.size(); ++i) {
-    ChSharedPtr<ChFunctionController> engine_funct(new ChFunctionController(
-        ch_system, engine_list[i], body_list, engine_list));
-    engine_list[i]->Set_eng_mode(ChLinkEngine::ENG_MODE_TORQUE);
-    engine_list[i]->Set_tor_funct(engine_funct);
-  }
-}
-
-void UsePositionControl(Robot *robot) {
-  auto &engine_list = robot->engine_list;
-  for (size_t i = 0; i < engine_list.size(); ++i) {
-    ChSharedPtr<ChFunction_Sine> engine_funct(new ChFunction_Sine(
-        double(i) * 2 / engine_list.size() * CH_C_2PI, 0.2, 0.5));
-    engine_list[i]->Set_eng_mode(ChLinkEngine::ENG_MODE_ROTATION);
-    engine_list[i]->Set_rot_funct(engine_funct);
   }
 }
 
@@ -103,7 +84,7 @@ int main(int argc, char *argv[]) {
   ch_system.SetIterLCPmaxItersStab(30);
   // ch_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
   ch_system.SetTol(1e-8);
-  ch_system.Set_G_acc(ChVector<>(0, -0.0 * 9.81, 0));
+  ch_system.Set_G_acc(ChVector<>(0, 0.0, 0));
   ChBroadPhaseCallbackNew *mcallback = new ChBroadPhaseCallbackNew;
   ch_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
 
@@ -114,8 +95,9 @@ int main(int argc, char *argv[]) {
   ChIrrWizard::add_typical_Logo(ch_app.GetDevice());
   ChIrrWizard::add_typical_Sky(ch_app.GetDevice());
   ChIrrWizard::add_typical_Lights(ch_app.GetDevice());
-  ChIrrWizard::add_typical_Camera(ch_app.GetDevice(), core::vector3df(0, 2, 0),
-                                  core::vector3df(0.1, 0, 0));
+  ChIrrWizard::add_typical_Camera(ch_app.GetDevice(),
+                                  core::vector3df(3.0, 6, 0),
+                                  core::vector3df(3.1, 0, 0));
   scene::ICameraSceneNode *cur_cam =
       ch_app.GetSceneManager()->getActiveCamera();
   // cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
@@ -151,14 +133,15 @@ int main(int argc, char *argv[]) {
   }
 
   // Switch to controller
-  UseController(&ch_system, &i_robot);
+  Controller controller(&ch_system, &i_robot);
+  UseController(&controller);
 
   ch_app.SetVideoframeSave(true);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 100.0) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 200.0) {
     // the core simulation part
-
+    controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();
 
     // ChVector<> cam_pos = robot_builder.GetRobotCoMPosition();

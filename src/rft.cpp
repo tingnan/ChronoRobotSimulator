@@ -3,7 +3,7 @@
 #include <array>
 #include <iterator>
 
-#include <unit_IRRLICHT/ChIrrApp.h>
+#include <chrono_irrlicht/ChIrrApp.h>
 #include <physics/ChBody.h>
 
 #include "include/rft.h"
@@ -91,7 +91,7 @@ inline double hevistep(double x) { return x > 0 ? 1 : (x < 0 ? -1 : 0); }
 void ForceSand(double deltah, double cospsi, double sinpsi, double area,
                double *fnorm, double *fpara) {
   // prefac = k * rho * g * z * A * reduction_factor
-  double prefac = 2.5 * 2470 * 9.81 * deltah * area * 2.5e-2;
+  double prefac = 2.5 * 2470 * 9.81 * deltah * area * 2.0e-2;
   *fpara = prefac * sinpsi * 1;
   const double tan2gamm0 = 0.060330932472924;
   *fnorm = prefac * cospsi * (1 + 1.8 / sqrt(tan2gamm0 + cospsi * cospsi));
@@ -265,7 +265,6 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
       tmp.Cross(position_list[i] - chbody->GetPos(), rbody.forces[i]);
       moment += tmp;
     }
-
     // DrawVector(ch_app_, chbody->GetPos(), force, 1, 0);
     chbody->Empty_forces_accumulators();
     chbody->Accumulate_force(force, chbody->GetPos(), false);
@@ -319,6 +318,8 @@ RFTSystem::InteractPieceHorizontal(const chrono::ChVector<> &surface_position,
     }
     sinpsi = fabs(sinpsi);
     double fnorm, fpara;
+    fnorm = 1 * cospsi * abs_vel * area * (-height) * 5e4;
+    fpara = 1 * sinpsi * abs_vel * area * (-height) * 5e4;
     ForceSand(-height, cospsi, sinpsi, area, &fnorm, &fpara);
     force = fnorm * frame_normal + fpara * frame_tangent;
   } else {
