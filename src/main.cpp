@@ -108,7 +108,11 @@ int main(int argc, char *argv[]) {
   RFTSystem rsystem(&ch_app);
   // now let us build the robot_builder;
 
-  Robot i_robot = BuildRobotAndWorld(&ch_app, Json::Value());
+  Robot i_robot = BuildRobot(ch_app.GetSystem(), Json::Value());
+  // Do visual binding.
+  ch_app.AssetBindAll();
+  ch_app.AssetUpdateAll();
+
   UsePositionControl(&i_robot);
   // get all the RFT body_list to interact
   // std::vector<RFTBody> &body_list = robot_builder.getRFTBodyList();

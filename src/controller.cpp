@@ -411,7 +411,7 @@ double ChFunctionController::GetMediaTorque(double t) {
 
 // The low level PID controller in motor.
 double ChFunctionController::ComputeDriveTorque(double t) {
-  // for a "bad" contact we decrease the local curvature
+  t = 0;
   double desired_angle = controller_->GetAngle(index_, t);
   double desired_angular_speed = controller_->GetAngularSpeed(index_, t);
   double curr_angle = controller_->GetEngine(index_)->Get_mot_rot();

@@ -15,6 +15,10 @@
 using namespace chrono;
 
 namespace {
+const bool kEnableVisual = true;
+const bool kEnableCollision = true;
+const double kFriction = 0.1;
+const double kDensity = 2700.0;
 
 RFTMesh MeshRFTSquare(double lx, double ly, bool is_double_sided) {
   const size_t kMaxNumPieces = 100;
@@ -60,74 +64,38 @@ void TransformRFTMesh(const ChFrame<> &frame, RFTMesh &mesh) {
 
 } // namespace
 
-Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
-  auto ch_system = ch_app->GetSystem();
-  Robot i_robot;
-  const double kDensity = 2700.0;
-  const bool kEnableCollision = true;
-  const bool kEnableVisual = true;
-
+void BuildWorld(chrono::ChSystem *ch_system) {
+  // Build a set of random collidables.
   if (false) {
-    ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
-        500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
-    ground->SetBodyFixed(true);
-    ground->SetPos(ChVector<>(0, -0.6, 0));
-    ground->SetIdentifier(-1);
-    ground->GetMaterialSurface()->SetFriction(0.1);
-    ch_system->Add(ground);
+    const size_t kGridSize = 15;
+    const double kGridDist = 0.4;
+    const double kHeight = 0.2;
+    const double kSigma = 0.15;
 
-    const double kL = 0.20;
-    const double kW = 0.02;
-    ChSharedPtr<ChBodyEasyBox> link_1(new ChBodyEasyBox(
-        kL, kW, kW, kDensity, kEnableCollision, kEnableVisual));
-    link_1->SetPos(ChVector<>(kL * 0.5, 0, 0));
-    ch_system->Add(link_1);
-    i_robot.body_list.push_back(link_1.get());
-    i_robot.body_length_list.push_back(kL);
+    std::mt19937 generator(0);
+    std::normal_distribution<double> normal_dist_radius(0.0, kSigma);
 
-    ChSharedPtr<ChLinkEngine> joint_1(new ChLinkEngine);
-    joint_1->Initialize(link_1, ground,
-                        ChCoordsys<>(ChVector<>(), Q_from_AngX(CH_C_PI_2)));
-    ch_system->Add(joint_1);
-    i_robot.engine_list.push_back(joint_1.get());
-
-    ChSharedPtr<ChBodyEasyBox> link_2(new ChBodyEasyBox(
-        kL, kW, kW, kDensity, kEnableCollision, kEnableVisual));
-    link_2->SetPos(ChVector<>(kL * 1.5, 0, 0));
-    ch_system->Add(link_2);
-    i_robot.body_list.push_back(link_2.get());
-    i_robot.body_length_list.push_back(kL);
-
-    ChSharedPtr<ChLinkEngine> joint_2(new ChLinkEngine);
-    joint_2->Initialize(link_2, link_1, ChCoordsys<>(ChVector<>(kL, 0, 0),
-                                                     Q_from_AngX(CH_C_PI_2)));
-    ch_system->Add(joint_2);
-    i_robot.engine_list.push_back(joint_2.get());
-
-    if (true) {
-      ChSharedPtr<ChBodyEasyBox> link_1(
-          new ChBodyEasyBox(kW, kW, kW, 1.0, !kEnableCollision, kEnableVisual));
-      link_1->SetPos(ChVector<>(4 * kL, 0, 0));
-      link_1->SetBodyFixed(true);
-      link_1->AddAsset(ChSharedPtr<ChColorAsset>(new ChColorAsset(1, 0, 0)));
-      ch_system->Add(link_1);
-
-      ChSharedPtr<ChBodyEasyBox> link_2(
-          new ChBodyEasyBox(kW, kW, kW, 1.0, !kEnableCollision, kEnableVisual));
-      link_2->SetPos(ChVector<>(0, 4 * kL, 0));
-      link_2->SetBodyFixed(true);
-      link_2->AddAsset(ChSharedPtr<ChColorAsset>(new ChColorAsset(0, 1, 0)));
-      ch_system->Add(link_2);
-
-      ChSharedPtr<ChBodyEasyBox> link_3(
-          new ChBodyEasyBox(kW, kW, kW, 1.0, !kEnableCollision, kEnableVisual));
-      link_3->SetPos(ChVector<>(0, 0, 4 * kL));
-      link_3->SetBodyFixed(true);
-      link_3->AddAsset(ChSharedPtr<ChColorAsset>(new ChColorAsset(0, 0, 1)));
-      ch_system->Add(link_3);
+    for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {
+      for (size_t z_grid = 0; z_grid < kGridSize; ++z_grid) {
+        double radius = fabs(normal_dist_radius(generator));
+        // radius = 0.27;
+        radius = std::max(radius, 0.01);
+        ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
+            radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
+        body_ptr->SetBodyFixed(true);
+        body_ptr->SetIdentifier(-1);
+        body_ptr->GetMaterialSurface()->SetFriction(kFriction);
+        double x_pos = x_grid * kGridDist;
+        double z_pos = (z_grid - 0.5 * kGridSize) * kGridDist;
+        body_ptr->SetPos(ChVector<>(x_pos, 0, z_pos));
+        ch_system->Add(body_ptr);
+      }
     }
   }
+}
 
+Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
+  Robot i_robot;
   // Build a snake body.
   if (true) {
     ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
@@ -203,38 +171,6 @@ Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params) {
       center_pos += ChVector<>(kLx, 0, 0);
     }
   }
-
-  // Build a set of random collidables.
-  if (true) {
-    const size_t kGridSize = 15;
-    const double kGridDist = 0.4;
-    const double kHeight = 0.2;
-    const double kSigma = 0.15;
-
-    std::mt19937 generator(0);
-    std::normal_distribution<double> normal_dist_radius(0.0, kSigma);
-
-    for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {
-      for (size_t z_grid = 0; z_grid < kGridSize; ++z_grid) {
-        double radius = fabs(normal_dist_radius(generator));
-        // radius = 0.27;
-        radius = std::max(radius, 0.01);
-        ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
-            radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
-        body_ptr->SetBodyFixed(true);
-        body_ptr->SetIdentifier(-1);
-        body_ptr->GetMaterialSurface()->SetFriction(0.1);
-        double x_pos = x_grid * kGridDist;
-        double z_pos = (z_grid - 0.5 * kGridSize) * kGridDist;
-        body_ptr->SetPos(ChVector<>(x_pos, 0, z_pos));
-        ch_system->Add(body_ptr);
-      }
-    }
-  }
-
-  // Do visual binding.
-  ch_app->AssetBindAll();
-  ch_app->AssetUpdateAll();
 
   return i_robot;
 }

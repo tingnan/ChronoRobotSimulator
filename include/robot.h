@@ -28,6 +28,7 @@ struct Robot {
   std::vector<RFTBody> rft_body_list;
 };
 
-Robot BuildRobotAndWorld(irr::ChIrrApp *ch_app, const Json::Value &params);
+void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params);
+Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params);
 
 #endif // INCLUDE_ROBOT_H_
