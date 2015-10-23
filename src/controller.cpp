@@ -95,6 +95,7 @@ ComputeChainJacobianTailFrame(const std::vector<ChBody *> &body_list,
       jacobian(3 * i + 2, j) = jacobian_dw(i, j);
     }
   }
+  // std::cout << jacobian << std::endl;
   return jacobian;
 }
 
@@ -157,6 +158,7 @@ ComputeChainJacobianCoMFrame(const std::vector<ChBody *> &body_list,
   jacobian_dw = jacobian_dw * jj;
 
   Eigen::MatrixXd jacobian(3 * kNumSegs, kNumSegs + 2);
+  jacobian.setZero();
   // Fill the elements (partial x_i, y_i / partial theta_j)
   for (size_t i = 0; i < kNumSegs; ++i) {
     for (size_t j = 0; j < kNumSegs + 2; ++j) {
@@ -165,6 +167,7 @@ ComputeChainJacobianCoMFrame(const std::vector<ChBody *> &body_list,
       jacobian(3 * i + 2, j) = jacobian_dw(i, j);
     }
   }
+  // std::cout << jacobian << std::endl;
   return jacobian;
 }
 
@@ -190,7 +193,7 @@ Eigen::VectorXd SolveChainInternalTorque(const Eigen::MatrixXd &inertia,
   reduced_mat.col(2) = inertia_q.col(kSegs + 1);
   Eigen::VectorXd interal_torques =
       reduced_mat * com_motion - generalized_force;
-  std::cout << interal_torques.transpose() << std::endl;
+  // std::cout << interal_torques.transpose() << std::endl;
   return interal_torques;
 }
 
@@ -201,22 +204,20 @@ RedistContactWeight(const chrono::ChVectorDynamic<> &contact_weight) {
   const size_t kNumSegs = contact_weight.GetRows();
   chrono::ChVectorDynamic<> weight_redist(kNumSegs);
 
-  /*
-  double max_weight = 0;
-  for (int i = 0; i < kNumSegs; ++i) {
-    for (int j = 0; j < kNumSegs; ++j) {
-      double decay = -(j - i) * (j - i) * 0.5;
-      weight_redist(i) = weight_redist(i) + exp(decay) * contact_weight(j);
-    }
-    max_weight = std::max(max_weight, weight_redist(i));
-  }
-
-  if (max_weight > 0) {
-    for (size_t i = 0; i < kNumSegs; ++i) {
-      weight_redist(i) = weight_redist(i) / max_weight;
-    }
-  }
- */
+  // double max_weight = 0;
+  // for (int i = 0; i < kNumSegs; ++i) {
+  //   for (int j = 0; j < kNumSegs; ++j) {
+  //     double decay = -(j - i) * (j - i) * 0.5;
+  //     weight_redist(i) = weight_redist(i) + exp(decay) * contact_weight(j);
+  //   }
+  //   max_weight = std::max(max_weight, weight_redist(i));
+  // }
+  //
+  // if (max_weight > 0) {
+  //   for (size_t i = 0; i < kNumSegs; ++i) {
+  //     weight_redist(i) = weight_redist(i) / max_weight;
+  //   }
+  // }
   for (size_t i = 0; i < kNumSegs; ++i) {
     weight_redist(i) = 2 - contact_weight(i);
   }
@@ -229,7 +230,7 @@ RedistContactWeight(const chrono::ChVectorDynamic<> &contact_weight) {
   return weight_redist;
 }
 
-} // namespoint_ace
+} // namespace
 
 class ExtractContactForce : public ChReportContactCallback2 {
 public:
@@ -275,7 +276,7 @@ Controller::Controller(chrono::ChSystem *ch_system, class Robot *i_robot)
       amplitudes_(robot_->engine_list.size()),
       average_contact_weight_(robot_->engine_list.size()) {
   contact_reporter_ = new ExtractContactForce(&contact_force_list_);
-  for (size_t i = 0; i < amplitudes_.GetRows(); ++i) {
+  for (size_t i = 0; i < amplitudes_.rows(); ++i) {
     amplitudes_(i) = default_amplitude_;
     average_contact_weight_(i) = 1;
   }
@@ -283,39 +284,50 @@ Controller::Controller(chrono::ChSystem *ch_system, class Robot *i_robot)
 
 void Controller::Step(double dt) {
 
-  // SolveChainInternalTorque();
-  // exit(0);
+  // auto jacobian = ComputeChainJacobianTailFrame(robot_->body_list,
+  //                                               robot_->body_length_list);
+  auto jacobian =
+      ComputeChainJacobianCoMFrame(robot_->body_list, robot_->body_length_list);
+  // Eigen::VectorXd f_ext(robot_->body_list.size() * 3);
+  // f_ext.setZero();
+  // f_ext(1) = 0.3;
+  // f_ext(4) = -1;
+  // f_ext(7) = 1;
+  // f_ext(10) = -0.3;
+  // SolveChainInternalTorque(robot_->inertia, jacobian, f_ext);
 
-  steps_++;
+  // steps_++;
   const size_t kNumSegs = robot_->body_list.size();
   const size_t kNumJoints = robot_->engine_list.size();
   // the cycle is 1/f seconds and it takes 1/f/dt steps for a wave cycle. We
   // have kNumSegs - 1 joints and it takes about 1/f/dt/kNumJoints /
   // num_waves_ steps for the amplitudes to shift to next segments
-  double cycle_time = CH_C_2PI / omega_;
-  if (steps_ >= cycle_time / dt / kNumJoints / num_waves_) {
-    for (size_t i = 0; i < kNumJoints; ++i) {
-      average_contact_weight_(i) /= steps_;
-      amplitudes_(i) = amplitudes_(i) * average_contact_weight_(i);
+  // double cycle_time = CH_C_2PI / omega_;
+  // if (steps_ >= cycle_time / dt / kNumJoints / num_waves_) {
+  //   for (size_t i = 0; i < kNumJoints; ++i) {
+  //     average_contact_weight_(i) /= steps_;
+  //     amplitudes_(i) = amplitudes_(i) * average_contact_weight_(i);
+  //
+  //     average_contact_weight_(i) = 0;
+  //   }
+  //   // do a shift
+  //   for (size_t i = 0; i < kNumJoints - 1; ++i) {
+  //     amplitudes_(i) = amplitudes_(i + 1);
+  //   }
+  //   amplitudes_(kNumJoints - 1) = default_amplitude_;
+  //   steps_ = 0;
+  // }
 
-      average_contact_weight_(i) = 0;
-    }
-    // do a shift
-    for (size_t i = 0; i < kNumJoints - 1; ++i) {
-      amplitudes_(i) = amplitudes_(i + 1);
-    }
-    amplitudes_(kNumJoints - 1) = default_amplitude_;
-    steps_ = 0;
-  }
-
-  // Clear all the forces in the contact force container
+  // Clear all the forces in the contact force
+  // container
   for (auto &force : contact_force_list_) {
     force.Set(0);
   }
   ch_system_->GetContactContainer()->ReportAllContacts2(contact_reporter_);
-  ChVectorDynamic<> forces_media(3 * kNumSegs);
-  ChVectorDynamic<> forces_contact(3 * kNumSegs);
-  ChVectorDynamic<> contact_weight(kNumSegs);
+
+  Eigen::VectorXd forces_media(3 * kNumSegs);
+  Eigen::VectorXd forces_contact(3 * kNumSegs);
+  Eigen::VectorXd contact_weight(kNumSegs);
   ChVector<> desired_direction = ChVector<>(1.0, 0.0, 0.0);
   ChVector<> accum_force;
   for (size_t i = 0; i < kNumSegs; ++i) {
@@ -344,18 +356,18 @@ void Controller::Step(double dt) {
     forces_contact(3 *i + 2) = 0;
     forces_media(3 *i + 2) = 0;
   }
-
-  // blend the contact weight and add the weight to amp
-  contact_weight = RedistContactWeight(contact_weight);
-
-  for (size_t i = 0; i < kNumJoints; ++i) {
-    average_contact_weight_(i) +=
-        0.5 * (contact_weight(i) + contact_weight(i + 1));
-  }
-  auto jacobian =
-      ComputeChainJacobianCoMFrame(robot_->body_list, robot_->body_length_list);
-  // torques_media_ = jacobian * forces_media;
-  // torques_contact_ = jacobian * forces_contact;
+  auto torque_int =
+      SolveChainInternalTorque(robot_->inertia, jacobian, forces_media);
+  torques_media_ = torque_int.block(1, 0, kNumJoints, 1);
+  // std::cout << torques_media_.transpose() << std::endl;
+  //
+  // // blend the contact weight and add the weight to amp
+  // contact_weight = RedistContactWeight(contact_weight);
+  //
+  // for (size_t i = 0; i < kNumJoints; ++i) {
+  //   average_contact_weight_(i) +=
+  //       0.5 * (contact_weight(i) + contact_weight(i + 1));
+  // }
 }
 
 size_t Controller::GetNumEngines() { return robot_->engine_list.size(); }
@@ -386,7 +398,8 @@ double Controller::GetAngularSpeed(size_t index, double t) {
 
 // The parameters for the function
 double ChFunctionController::Get_y(double t) {
-  double torque = ComputeDriveTorque(t) + ComputeLimitTorque(t);
+  double torque =
+      ComputeDriveTorque(t) + ComputeLimitTorque(t) + 1.0 * GetMediaTorque(t);
   /*
 double torque_contact = GetContactTorque(t);
 double desired_angular_speed = controller_->GetAngularSpeed(index_, t);
@@ -401,17 +414,14 @@ torque += 0.0 * torque_contact;
 }
 
 double ChFunctionController::GetContactTorque(double t) {
-  // the torque at 0th index is for CoM, so we plus 1
-  return -controller_->GetContactTorque(index_ + 1, t);
+  return controller_->GetContactTorque(index_, t);
 }
 double ChFunctionController::GetMediaTorque(double t) {
-  // the torque at 0th index is for CoM, so we plus 1
-  return -controller_->GetMediaTorque(index_ + 1, t);
+  return controller_->GetMediaTorque(index_, t);
 }
 
 // The low level PID controller in motor.
 double ChFunctionController::ComputeDriveTorque(double t) {
-  t = 0;
   double desired_angle = controller_->GetAngle(index_, t);
   double desired_angular_speed = controller_->GetAngularSpeed(index_, t);
   double curr_angle = controller_->GetEngine(index_)->Get_mot_rot();
@@ -442,7 +452,7 @@ void UsePositionControl(Robot *robot) {
   auto &engine_list = robot->engine_list;
   for (size_t i = 0; i < engine_list.size(); ++i) {
     ChSharedPtr<ChFunction_Sine> engine_funct(new ChFunction_Sine(
-        double(i) * 2 / engine_list.size() * CH_C_2PI, 0.1, 0.6));
+        double(i) * 2 / engine_list.size() * CH_C_2PI, 0.2, 0.6));
     engine_list[i]->Set_eng_mode(ChLinkEngine::ENG_MODE_ROTATION);
     engine_list[i]->Set_rot_funct(engine_funct);
   }

@@ -2,7 +2,7 @@
 #define INCLUDE_ROBOT_H_
 
 #include <vector>
-
+#include <Eigen/Core>
 #include <core/ChMath.h>
 
 class RFTBody;
@@ -26,6 +26,7 @@ struct Robot {
   std::vector<double> body_length_list;
   std::vector<chrono::ChLinkEngine *> engine_list;
   std::vector<RFTBody> rft_body_list;
+  Eigen::MatrixXd inertia;
 };
 
 void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params);

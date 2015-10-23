@@ -3,6 +3,7 @@
 
 #include <vector>
 
+#include <Eigen/Core>
 #include <motion_functions/ChFunction_Base.h>
 #include <physics/ChSystem.h>
 #include <physics/ChLinkEngine.h>
@@ -28,14 +29,14 @@ private:
   chrono::ChReportContactCallback2 *contact_reporter_;
   std::vector<chrono::ChVector<> > contact_force_list_;
   // the torques at joints, computed from contact forces.
-  chrono::ChVectorDynamic<> torques_media_;
-  chrono::ChVectorDynamic<> torques_contact_;
+  Eigen::VectorXd torques_media_;
+  Eigen::VectorXd torques_contact_;
   // Parametr for the CPG
   double omega_ = 0.2 * chrono::CH_C_2PI;
   double num_waves_ = 2.0;
   double default_amplitude_ = 0.6;
-  chrono::ChVectorDynamic<> amplitudes_;
-  chrono::ChVectorDynamic<> average_contact_weight_;
+  Eigen::VectorXd amplitudes_;
+  Eigen::VectorXd average_contact_weight_;
   // reference counting
   size_t steps_ = 0;
 };

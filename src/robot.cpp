@@ -97,6 +97,47 @@ void BuildWorld(chrono::ChSystem *ch_system) {
 Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
   Robot i_robot;
   // Build a snake body.
+  if (false) {
+    const size_t kNumSegments = 4;
+    const double kW = 0.10;
+    const double kLx = 1.0;
+    ChVector<> center_pos(0, kLx * 0.5, 0);
+    std::vector<ChSharedBodyPtr> body_container_;
+    i_robot.inertia.resize(kNumSegments * 3, kNumSegments * 3);
+    i_robot.inertia.setZero();
+    for (size_t i = 0; i < kNumSegments; ++i) {
+      i_robot.inertia(3 * i + 0, 3 *i + 0) = 1;
+      i_robot.inertia(3 * i + 1, 3 *i + 1) = 1;
+      i_robot.inertia(3 * i + 2, 3 *i + 2) = 1 / 12;
+      ChSharedBodyPtr body_ptr;
+      body_ptr = ChSharedBodyPtr(new ChBodyEasyBox(
+          kLx, kW, kW, kDensity, kEnableCollision, kEnableVisual));
+      body_ptr->SetPos(center_pos);
+      body_ptr->SetIdentifier(i);
+      body_ptr->GetMaterialSurface()->SetFriction(0.1);
+      ch_system->Add(body_ptr);
+      i_robot.body_list.push_back(body_ptr.get());
+      i_robot.rft_body_list.emplace_back(body_ptr.get());
+      // Buid the RFT body
+      i_robot.rft_body_list.back().mesh = MeshRFTSquare(kLx, kW, true);
+      i_robot.rft_body_list.back().forces.resize(
+          i_robot.rft_body_list.back().mesh.positions.size());
+      i_robot.body_length_list.push_back(kLx);
+      body_container_.push_back(body_ptr);
+      if (i > 0) {
+        ChSharedPtr<ChLinkEngine> joint_ptr(new ChLinkEngine());
+        ChVector<> position = center_pos - ChVector<>(0.5 * kLx, 0, 0);
+        ChQuaternion<> orientation(Q_from_AngX(CH_C_PI_2));
+        joint_ptr->Initialize(body_container_[i], body_container_[i - 1],
+                              ChCoordsys<>(position, orientation));
+        i_robot.engine_list.push_back(joint_ptr.get());
+        joint_ptr->SetIdentifier(i);
+        ch_system->Add(joint_ptr);
+      }
+      center_pos += ChVector<>(kLx, 0, 0);
+    }
+  }
+
   if (true) {
     ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
         500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
@@ -112,6 +153,8 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     const double kLx = kL / kNumSegments;
     ChVector<> center_pos(0.0, -kW * 0.5, 0);
     std::vector<ChSharedBodyPtr> body_container_;
+    i_robot.inertia.resize(kNumSegments * 3, kNumSegments * 3);
+    i_robot.inertia.setZero();
     for (size_t i = 0; i < kNumSegments; ++i) {
       ChSharedBodyPtr body_ptr;
       if (i == kNumSegments - 1) {
@@ -123,6 +166,9 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
             kLx, kW, kW, kDensity, kEnableCollision, kEnableVisual));
         i_robot.body_length_list.push_back(kLx);
       }
+      i_robot.inertia(3 * i + 0, 3 *i + 0) = body_ptr->GetMass();
+      i_robot.inertia(3 * i + 1, 3 *i + 1) = body_ptr->GetMass();
+      i_robot.inertia(3 * i + 2, 3 *i + 2) = body_ptr->GetInertiaXX().z;
       // body_ptr->GetMaterialSurface()->SetFriction(0.00);
       body_ptr->SetPos(center_pos);
       body_ptr->SetIdentifier(i);
