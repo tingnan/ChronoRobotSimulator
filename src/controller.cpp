@@ -238,23 +238,11 @@ void Controller::Step(double dt) {
     // get the rft_force
     auto rft_force = robot_->body_list[i]->Get_accumulated_force();
     accum_force += rft_force;
-
-    // process contact forces;
-    double cos_theta = 0.0;
-    double force_mag = contact_force_list_[i].Length();
-    if (force_mag > 1e-4) {
-      contact_force_list_[i] = contact_force_list_[i] / force_mag;
-      cos_theta = desired_direction.Dot(contact_force_list_[i]);
-    }
-
-    contact_weight(i) = (2 - 2 * sigmoid(5, cos_theta));
     // fx
-    forces_contact(3 *i + 0) =
-        contact_force_list_[i](0) * std::max(std::min(force_mag, 5.0), 0.0);
+    forces_contact(3 *i + 0) = contact_force_list_[i](0);
     forces_media(3 *i + 0) = rft_force(0);
     // fz
-    forces_contact(3 *i + 1) =
-        contact_force_list_[i](2) * std::max(std::min(force_mag, 5.0), 0.0);
+    forces_contact(3 *i + 1) = contact_force_list_[i](2);
     forces_media(3 *i + 1) = rft_force(2);
     // Torque
     forces_contact(3 *i + 2) = 0;
