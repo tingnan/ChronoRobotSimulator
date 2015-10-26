@@ -196,26 +196,6 @@ Eigen::VectorXd SolveChainInternalTorque(const Eigen::MatrixXd &inertia,
   // std::cout << interal_torques.transpose() << std::endl;
   return interal_torques;
 }
-
-chrono::ChVectorDynamic<>
-RedistContactWeight(const chrono::ChVectorDynamic<> &contact_weight) {
-  // redistribute weight to
-  // nearby joints
-  const size_t kNumSegs = contact_weight.GetRows();
-  chrono::ChVectorDynamic<> weight_redist(kNumSegs);
-
-  for (size_t i = 0; i < kNumSegs; ++i) {
-    weight_redist(i) = 2 - contact_weight(i);
-  }
-
-  for (size_t i = 0; i < kNumSegs; ++i) {
-    weight_redist(i) =
-        weight_redist(i) > 1 ? 0.7 + 0.3 * weight_redist(i) : weight_redist(i);
-  }
-
-  return weight_redist;
-}
-
 } // namespace
 
 using namespace chrono;
@@ -311,21 +291,22 @@ double Controller::GetAngularSpeed(size_t index, double t) {
   return desired_angular_speed;
 }
 
-void UsePositionControl(Robot *robot) {
-  auto &engine_list = robot->engine_list;
+void Controller::UsePositionControl() {
+  auto &engine_list = robot_->engine_list;
   for (size_t i = 0; i < engine_list.size(); ++i) {
     ChSharedPtr<ChFunction_Sine> engine_funct(new ChFunction_Sine(
-        double(i) * 2 / engine_list.size() * CH_C_2PI, 0.2, 0.6));
+        double(i * num_waves_) / engine_list.size() * CH_C_2PI,
+        omega_ / CH_C_2PI, default_amplitude_));
     engine_list[i]->Set_eng_mode(ChLinkEngine::ENG_MODE_ROTATION);
     engine_list[i]->Set_rot_funct(engine_funct);
   }
 }
 
-void UseController(Controller *controller) {
-  for (size_t i = 0; i < controller->GetNumEngines(); ++i) {
+void Controller::UseForceControl() {
+  for (size_t i = 0; i < GetNumEngines(); ++i) {
     ChSharedPtr<ChFunctionController> engine_funct(
-        new ChFunctionController(i, controller));
-    controller->GetEngine(i)->Set_eng_mode(ChLinkEngine::ENG_MODE_TORQUE);
-    controller->GetEngine(i)->Set_tor_funct(engine_funct);
+        new ChFunctionController(i, this));
+    GetEngine(i)->Set_eng_mode(ChLinkEngine::ENG_MODE_TORQUE);
+    GetEngine(i)->Set_tor_funct(engine_funct);
   }
 }

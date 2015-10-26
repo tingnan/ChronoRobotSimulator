@@ -25,6 +25,9 @@ public:
   double GetAngle(size_t i, double t);
   double GetAngularSpeed(size_t i, double t);
 
+  void UseForceControl();
+  void UsePositionControl();
+
 private:
   chrono::ChSystem *ch_system_;
   class Robot *robot_;
@@ -43,7 +46,4 @@ private:
   // reference counting
   size_t steps_ = 0;
 };
-
-void UseController(Controller *controller);
-void UsePositionControl(Robot *robot);
 #endif // INCLUDE_CHFUNCTION_CONTROLLER_H_

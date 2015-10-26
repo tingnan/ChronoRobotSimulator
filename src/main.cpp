@@ -113,7 +113,9 @@ int main(int argc, char *argv[]) {
   ch_app.AssetBindAll();
   ch_app.AssetUpdateAll();
 
-  UsePositionControl(&i_robot);
+  // Switch to controller
+  Controller controller(&ch_system, &i_robot);
+  controller.UsePositionControl();
   // get all the RFT body_list to interact
   // std::vector<RFTBody> &body_list = robot_builder.getRFTBodyList();
 
@@ -136,11 +138,9 @@ int main(int argc, char *argv[]) {
               << std::endl;
   }
 
-  // Switch to controller
-  Controller controller(&ch_system, &i_robot);
-  UseController(&controller);
+  controller.UseForceControl();
 
-  ch_app.SetVideoframeSave(true);
+  ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
 
   while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 50.0) {
