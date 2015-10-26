@@ -36,12 +36,31 @@ void SerializeEngines(std::vector<chrono::ChLinkEngine *> &engine_list,
   jnt_file << std::setprecision(8);
   jnt_file << std::scientific;
   for (size_t i = 0; i < engine_list.size(); ++i) {
+    auto link_coordsys = engine_list[i]->GetLinkRelativeCoords();
     jnt_file << engine_list[i]->GetIdentifier() << " ";
-    auto localforce = engine_list[i]->Get_react_force();
-    auto localtorque = engine_list[i]->Get_mot_torque();
+    auto localforce = link_coordsys.TransformDirectionLocalToParent(
+        engine_list[i]->Get_react_force());
+    auto localtorque = link_coordsys.TransformDirectionLocalToParent(
+        engine_list[i]->Get_mot_torque());
     jnt_file << localforce << " " << localtorque << "\n";
   }
   jnt_file.flush();
+}
+
+void SerializeConstraints(std::vector<chrono::ChLink *> &constraint_list,
+                          std::ofstream &cst_file) {
+  cst_file << std::setprecision(8);
+  cst_file << std::scientific;
+  for (size_t i = 0; i < constraint_list.size(); ++i) {
+    cst_file << constraint_list[i]->GetIdentifier() << " ";
+    auto link_coordsys = constraint_list[i]->GetLinkRelativeCoords();
+    auto localforce = link_coordsys.TransformDirectionLocalToParent(
+        constraint_list[i]->Get_react_force());
+    auto localtorque = link_coordsys.TransformDirectionLocalToParent(
+        constraint_list[i]->Get_react_torque());
+    cst_file << localforce << " " << localtorque << "\n";
+  }
+  cst_file.flush();
 }
 
 void SerializeRFTForce(std::vector<RFTBody> &rft_body_list,

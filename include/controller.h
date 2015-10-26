@@ -7,7 +7,10 @@
 #include <motion_functions/ChFunction_Base.h>
 #include <physics/ChSystem.h>
 #include <physics/ChLinkEngine.h>
-#include <physics/ChContactContainerBase.h>
+
+namespace chrono {
+class ChReportContactCallback2;
+}
 
 class Controller {
 public:

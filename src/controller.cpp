@@ -4,16 +4,15 @@
 #include "include/chfunction_controller.h"
 #include "include/robot.h"
 #include "include/vector_utility.h"
-
-using namespace chrono;
+#include "include/contact_reporter.h"
 
 namespace {
 
 double sigmoid(double sigma, double x) { return 1 / (1 + exp(-sigma * x)); }
 
-double GetBodyXYPlaneAngle(ChBody *body_ptr) {
+double GetBodyXYPlaneAngle(chrono::ChBody *body_ptr) {
   double angle;
-  ChVector<> axis;
+  chrono::ChVector<> axis;
   body_ptr->GetRot().Q_to_AngAxis(angle, axis);
   if (axis(2) < 0) {
     angle = -angle;
@@ -68,7 +67,7 @@ Eigen::MatrixXd ChainJacobianDw(const std::vector<double> &body_length_list) {
 }
 
 Eigen::MatrixXd
-ComputeChainJacobianTailFrame(const std::vector<ChBody *> &body_list,
+ComputeChainJacobianTailFrame(const std::vector<chrono::ChBody *> &body_list,
                               const std::vector<double> &body_length_list) {
   const size_t kNumSegs = body_list.size();
   Eigen::VectorXd thetas(kNumSegs);
@@ -134,7 +133,7 @@ Eigen::MatrixXd ChainJacobianCoMTransform(const Eigen::MatrixXd &jacobian_dx,
 }
 
 Eigen::MatrixXd
-ComputeChainJacobianCoMFrame(const std::vector<ChBody *> &body_list,
+ComputeChainJacobianCoMFrame(const std::vector<chrono::ChBody *> &body_list,
                              const std::vector<double> &body_length_list) {
   const size_t kNumSegs = body_list.size();
   Eigen::VectorXd thetas(kNumSegs);
@@ -205,20 +204,6 @@ RedistContactWeight(const chrono::ChVectorDynamic<> &contact_weight) {
   const size_t kNumSegs = contact_weight.GetRows();
   chrono::ChVectorDynamic<> weight_redist(kNumSegs);
 
-  // double max_weight = 0;
-  // for (int i = 0; i < kNumSegs; ++i) {
-  //   for (int j = 0; j < kNumSegs; ++j) {
-  //     double decay = -(j - i) * (j - i) * 0.5;
-  //     weight_redist(i) = weight_redist(i) + exp(decay) * contact_weight(j);
-  //   }
-  //   max_weight = std::max(max_weight, weight_redist(i));
-  // }
-  //
-  // if (max_weight > 0) {
-  //   for (size_t i = 0; i < kNumSegs; ++i) {
-  //     weight_redist(i) = weight_redist(i) / max_weight;
-  //   }
-  // }
   for (size_t i = 0; i < kNumSegs; ++i) {
     weight_redist(i) = 2 - contact_weight(i);
   }
@@ -233,43 +218,7 @@ RedistContactWeight(const chrono::ChVectorDynamic<> &contact_weight) {
 
 } // namespace
 
-class ExtractContactForce : public ChReportContactCallback2 {
-public:
-  ExtractContactForce(std::vector<ChVector<> > *contact_force_list)
-      : contact_force_list_(contact_force_list) {}
-  virtual bool ReportContactCallback2(const chrono::ChVector<> &point_a,
-                                      const chrono::ChVector<> &point_b,
-                                      const chrono::ChMatrix33<> &plane_coord,
-                                      const double &distance,
-                                      const chrono::ChVector<> &react_forces,
-                                      const chrono::ChVector<> &react_torques,
-                                      chrono::ChContactable *model_a,
-                                      chrono::ChContactable *model_b) {
-    ChVector<> contact_normal = plane_coord.Get_A_Xaxis();
-
-    ChVector<> contact_force = plane_coord * react_forces;
-    ChVector<> contact_force_normal = contact_normal * react_forces.x;
-    auto contact_force_tangent =
-        contact_force - dot(contact_normal, contact_force) * contact_normal;
-    auto f = contact_force_tangent.Length();
-    auto N = contact_force_normal.Length();
-    auto id_a = model_a->GetPhysicsItem()->GetIdentifier();
-    auto id_b = model_b->GetPhysicsItem()->GetIdentifier();
-
-    if (id_a >= 0 && id_a < contact_force_list_->size() && id_b == -1) {
-      (*contact_force_list_)[id_a] -= contact_force_normal;
-    }
-
-    if (id_b >= 0 && id_b < contact_force_list_->size() && id_a == -1) {
-      (*contact_force_list_)[id_b] = contact_force_normal;
-    }
-
-    return true; // to continue scanning contacts
-  }
-
-private:
-  std::vector<ChVector<> > *contact_force_list_;
-};
+using namespace chrono;
 
 Controller::Controller(chrono::ChSystem *ch_system, class Robot *i_robot)
     : ch_system_(ch_system), robot_(i_robot),
@@ -289,35 +238,9 @@ void Controller::Step(double dt) {
   //                                               robot_->body_length_list);
   auto jacobian =
       ComputeChainJacobianCoMFrame(robot_->body_list, robot_->body_length_list);
-  // Eigen::VectorXd f_ext(robot_->body_list.size() * 3);
-  // f_ext.setZero();
-  // f_ext(1) = 0.3;
-  // f_ext(4) = -1;
-  // f_ext(7) = 1;
-  // f_ext(10) = -0.3;
-  // SolveChainInternalTorque(robot_->inertia, jacobian, f_ext);
-
   // steps_++;
   const size_t kNumSegs = robot_->body_list.size();
   const size_t kNumJoints = robot_->engine_list.size();
-  // the cycle is 1/f seconds and it takes 1/f/dt steps for a wave cycle. We
-  // have kNumSegs - 1 joints and it takes about 1/f/dt/kNumJoints /
-  // num_waves_ steps for the amplitudes to shift to next segments
-  // double cycle_time = CH_C_2PI / omega_;
-  // if (steps_ >= cycle_time / dt / kNumJoints / num_waves_) {
-  //   for (size_t i = 0; i < kNumJoints; ++i) {
-  //     average_contact_weight_(i) /= steps_;
-  //     amplitudes_(i) = amplitudes_(i) * average_contact_weight_(i);
-  //
-  //     average_contact_weight_(i) = 0;
-  //   }
-  //   // do a shift
-  //   for (size_t i = 0; i < kNumJoints - 1; ++i) {
-  //     amplitudes_(i) = amplitudes_(i + 1);
-  //   }
-  //   amplitudes_(kNumJoints - 1) = default_amplitude_;
-  //   steps_ = 0;
-  // }
 
   // Clear all the forces in the contact force
   // container
@@ -360,15 +283,6 @@ void Controller::Step(double dt) {
   auto torque_int =
       SolveChainInternalTorque(robot_->inertia, jacobian, forces_media);
   torques_media_ = torque_int.block(1, 0, kNumJoints, 1);
-  // std::cout << torques_media_.transpose() << std::endl;
-  //
-  // // blend the contact weight and add the weight to amp
-  // contact_weight = RedistContactWeight(contact_weight);
-  //
-  // for (size_t i = 0; i < kNumJoints; ++i) {
-  //   average_contact_weight_(i) +=
-  //       0.5 * (contact_weight(i) + contact_weight(i + 1));
-  // }
 }
 
 size_t Controller::GetNumEngines() { return robot_->engine_list.size(); }

@@ -29,10 +29,8 @@ public:
 
 protected:
   double GetMediaTorque(double t);
-  double GetContactTorque(double t);
   // The low level PID controller in motor.
   double ComputeDriveTorque(double t);
-  double ComputeLimitTorque(double t);
   double cum_error_ = 0;
   Controller *controller_;
   size_t index_;

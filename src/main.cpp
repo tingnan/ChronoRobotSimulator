@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
   Controller controller(&ch_system, &i_robot);
   UseController(&controller);
 
-  ch_app.SetVideoframeSave(false);
+  ch_app.SetVideoframeSave(true);
   ch_app.SetVideoframeSaveInterval(save_step);
 
   while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 50.0) {
