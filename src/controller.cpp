@@ -248,6 +248,7 @@ void Controller::Step(double dt) {
     forces_contact(3 *i + 2) = 0;
     forces_media(3 *i + 2) = 0;
   }
+  std::cout << accum_force << std::endl;
   auto torque_int =
       SolveChainInternalTorque(robot_->inertia, jacobian, forces_media);
   torques_media_ = torque_int.block(1, 0, kNumJoints, 1);

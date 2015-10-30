@@ -100,7 +100,7 @@ Mqc = Jct*M*Jc;
 
 
 %%
-f = [0;0.3;0;-1;0;1;0;-0.3];
+f = [0;1/3;0;-1;0;1;0;-1/3];
 Qvc = Jcvt*f;
 linsolve(Mqc, Qvc);
 Qv = Jvt*f;

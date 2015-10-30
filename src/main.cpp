@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
   ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 50.0) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 30.0) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();
