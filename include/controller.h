@@ -38,9 +38,9 @@ private:
   Eigen::VectorXd torques_media_;
   Eigen::VectorXd torques_contact_;
   // Parametr for the CPG
-  double omega_ = 0.1 * chrono::CH_C_2PI;
-  double num_waves_ = 1.0;
-  double default_amplitude_ = 0.3;
+  double omega_ = 0.2 * chrono::CH_C_2PI;
+  double num_waves_ = 2.0;
+  double default_amplitude_ = 0.6;
   Eigen::VectorXd amplitudes_;
   Eigen::VectorXd average_contact_weight_;
   // reference counting

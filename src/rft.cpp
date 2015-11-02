@@ -92,7 +92,8 @@ void ForceSand(double deltah, double cospsi, double sinpsi, double area,
   double prefac = 2.5 * 2470 * 9.81 * deltah * area * 2.5e-2;
   *fpara = prefac * sinpsi * 0.5;
   const double tan2gamm0 = 0.060330932472924;
-  *fnorm = prefac * cospsi * (1 + 1.8 / sqrt(tan2gamm0 + cospsi * cospsi));
+  *fnorm =
+      prefac * cospsi * 0.5 + 0 * (1 + 1.8 / sqrt(tan2gamm0 + cospsi * cospsi));
 }
 
 void ForceBB(double deltah, double cospsi, double sinpsi, double area,
