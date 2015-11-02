@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
 
   // Switch to controller
   Controller controller(&ch_system, &i_robot);
-  controller.UsePositionControl();
+  // controller.UsePositionControl();
   // get all the RFT body_list to interact
   // std::vector<RFTBody> &body_list = robot_builder.getRFTBodyList();
 
@@ -133,11 +133,11 @@ int main(int argc, char *argv[]) {
 
   // Assemble the robot
 
-  while (ch_system.GetChTime() < 1.0) {
-    ch_app.DoStep();
-    std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
-              << std::endl;
-  }
+  // while (ch_system.GetChTime() < 1.0) {
+  //   ch_app.DoStep();
+  //   std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
+  //             << std::endl;
+  // }
 
   controller.UseForceControl();
 
