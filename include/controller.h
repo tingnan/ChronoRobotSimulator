@@ -35,7 +35,7 @@ private:
   class Robot *robot_;
   // Contact force on each of the robot segment.
   chrono::ChReportContactCallback2 *contact_reporter_;
-  std::vector<chrono::ChVector<>> contact_force_list_;
+  std::vector<chrono::ChVector<> > contact_force_list_;
   // the torques at joints, computed from contact forces.
   Eigen::VectorXd torques_media_;
   Eigen::VectorXd torques_contact_;
