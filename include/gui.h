@@ -2,22 +2,22 @@
 #define INCLUDE_GUI_H_
 
 #include <irrlicht.h>
-
-#include "include/robot.h"
+class Controller;
 namespace irr {
 //********************
 // EVENT RECEIVER CLASS
 //********************
 class MyEventReceiver : public IEventReceiver {
 public:
-  MyEventReceiver(class ChIrrApp *);
+  MyEventReceiver(class ChIrrApp *ch_app, Controller *controller);
   bool OnEvent(const SEvent &event);
   // update text when global params are changed
   void UpdateText();
 
 private:
-  bool key_down_;
-  class ChIrrApp *app_;
+  bool space_key_down_;
+  class ChIrrApp *ch_app_;
+  Controller *controller_;
   gui::IGUICheckBox *checkbox_pause_sim_;
   gui::IGUIEditBox *edbox_time_step_;
 };

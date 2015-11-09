@@ -17,7 +17,7 @@ using namespace chrono;
 namespace {
 const bool kEnableVisual = true;
 const bool kEnableCollision = true;
-const double kFriction = 0.0;
+const double kFriction = 0.1;
 const double kDensity = 2700.0;
 
 RFTMesh MeshRFTSquare(double lx, double ly, bool is_double_sided) {
@@ -67,7 +67,7 @@ void TransformRFTMesh(const ChFrame<> &frame, RFTMesh &mesh) {
 void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params) {
   // Build a set of random collidables.
   if (true) {
-    const size_t kGridSize = 2;
+    const size_t kGridSize = 10;
     const double kGridDist = 0.4;
     const double kHeight = 0.2;
     const double kSigma = 0.15;
@@ -107,9 +107,9 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     i_robot.inertia.resize(kNumSegments * 3, kNumSegments * 3);
     i_robot.inertia.setZero();
     for (size_t i = 0; i < kNumSegments; ++i) {
-      i_robot.inertia(3 * i + 0, 3 *i + 0) = 1;
-      i_robot.inertia(3 * i + 1, 3 *i + 1) = 1;
-      i_robot.inertia(3 * i + 2, 3 *i + 2) = 1 / 12;
+      i_robot.inertia(3 * i + 0, 3 * i + 0) = 1;
+      i_robot.inertia(3 * i + 1, 3 * i + 1) = 1;
+      i_robot.inertia(3 * i + 2, 3 * i + 2) = 1 / 12;
       ChSharedBodyPtr body_ptr;
       body_ptr = ChSharedBodyPtr(new ChBodyEasyBox(
           kLx, kW, kW, kDensity, kEnableCollision, kEnableVisual));
@@ -152,7 +152,7 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     const double kL = 1.10;
     const double kW = 0.05;
     const double kLx = kL / kNumSegments;
-    ChVector<> center_pos(-kL * 0.5, -kW * 0.5, 0.2);
+    ChVector<> center_pos(kL * 0.5, -kW * 0.5, 2.2);
     std::vector<ChSharedBodyPtr> body_container_;
     i_robot.inertia.resize(kNumSegments * 3, kNumSegments * 3);
     i_robot.inertia.setZero();
@@ -167,9 +167,9 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
             kLx, kW, kW, kDensity, kEnableCollision, kEnableVisual));
         i_robot.body_length_list.push_back(kLx);
       }
-      i_robot.inertia(3 * i + 0, 3 *i + 0) = body_ptr->GetMass();
-      i_robot.inertia(3 * i + 1, 3 *i + 1) = body_ptr->GetMass();
-      i_robot.inertia(3 * i + 2, 3 *i + 2) = body_ptr->GetInertiaXX().z;
+      i_robot.inertia(3 * i + 0, 3 * i + 0) = body_ptr->GetMass();
+      i_robot.inertia(3 * i + 1, 3 * i + 1) = body_ptr->GetMass();
+      i_robot.inertia(3 * i + 2, 3 * i + 2) = body_ptr->GetInertiaXX().z;
       body_ptr->SetPos(center_pos);
       body_ptr->SetIdentifier(i);
       body_ptr->GetMaterialSurface()->SetFriction(kFriction);

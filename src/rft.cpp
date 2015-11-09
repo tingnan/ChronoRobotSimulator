@@ -89,7 +89,7 @@ inline double hevistep(double x) { return x > 0 ? 1 : (x < 0 ? -1 : 0); }
 void ForceSand(double deltah, double cospsi, double sinpsi, double area,
                double *fnorm, double *fpara) {
   // prefac = k * rho * g * z * A * reduction_factor
-  double prefac = 2.5 * 2470 * 9.81 * deltah * area * 2.5e-2;
+  double prefac = 2.5 * 2470 * 9.81 * deltah * area * 5.0e-2;
   *fpara = prefac * sinpsi * 0.5;
   const double tan2gamm0 = 0.060330932472924;
   *fnorm =
@@ -194,8 +194,8 @@ Value Interpolate2(const Scalar xbin[], size_t size_x, const Scalar ybin[],
 }
 } // namespace
 
-std::vector<chrono::ChVector<> > RFTBody::GetTransformedNormalList() {
-  std::vector<chrono::ChVector<> > output;
+std::vector<chrono::ChVector<>> RFTBody::GetTransformedNormalList() {
+  std::vector<chrono::ChVector<>> output;
   output.reserve(mesh.normals.size());
   for (const auto &normal : mesh.normals) {
     output.emplace_back(chbody->TransformPointLocalToParent(normal) -
@@ -204,8 +204,8 @@ std::vector<chrono::ChVector<> > RFTBody::GetTransformedNormalList() {
   return output;
 }
 
-std::vector<chrono::ChVector<> > RFTBody::GetTransformedPositionList() {
-  std::vector<chrono::ChVector<> > output;
+std::vector<chrono::ChVector<>> RFTBody::GetTransformedPositionList() {
+  std::vector<chrono::ChVector<>> output;
   output.reserve(mesh.positions.size());
   for (const auto &pos : mesh.positions) {
     output.emplace_back(chbody->TransformPointLocalToParent(pos));
@@ -213,8 +213,8 @@ std::vector<chrono::ChVector<> > RFTBody::GetTransformedPositionList() {
   return output;
 }
 
-std::vector<chrono::ChVector<> > RFTBody::GetTransformedVelocityList() {
-  std::vector<chrono::ChVector<> > output;
+std::vector<chrono::ChVector<>> RFTBody::GetTransformedVelocityList() {
+  std::vector<chrono::ChVector<>> output;
   output.reserve(mesh.positions.size());
   for (const auto &pos : mesh.positions) {
     output.emplace_back(chbody->PointSpeedLocalToParent(pos));
@@ -268,12 +268,11 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
   }
 }
 
-void
-RFTSystem::InteractPieceHorizontal(const chrono::ChVector<> &surface_position,
-                                   const chrono::ChVector<> &surface_velocity,
-                                   const chrono::ChVector<> &surface_normal,
-                                   bool is_double_sided, double area,
-                                   chrono::ChVector<> &force) {
+void RFTSystem::InteractPieceHorizontal(
+    const chrono::ChVector<> &surface_position,
+    const chrono::ChVector<> &surface_velocity,
+    const chrono::ChVector<> &surface_normal, bool is_double_sided, double area,
+    chrono::ChVector<> &force) {
   ChVector<> rft_plane_y = ydir_;
   double height = dot(rft_plane_y, surface_position);
   if (height < 0) {

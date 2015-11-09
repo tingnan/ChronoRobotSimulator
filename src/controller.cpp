@@ -200,7 +200,7 @@ Eigen::VectorXd SolveChainInternalTorque(const Eigen::MatrixXd &inertia,
 
 using namespace chrono;
 
-Controller::Controller(chrono::ChSystem *ch_system, class Robot *i_robot)
+Controller::Controller(chrono::ChSystem *ch_system, Robot *i_robot)
     : ch_system_(ch_system), robot_(i_robot),
       contact_force_list_(robot_->body_list.size()),
       amplitudes_(robot_->engine_list.size()),
@@ -212,16 +212,24 @@ Controller::Controller(chrono::ChSystem *ch_system, class Robot *i_robot)
   }
 }
 
+void Controller::SetDefaultAmplitude(double amp) { default_amplitude_ = amp; }
+
 void Controller::Step(double dt) {
 
-  // auto jacobian = ComputeChainJacobianTailFrame(robot_->body_list,
-  //                                               robot_->body_length_list);
-  auto jacobian =
-      ComputeChainJacobianCoMFrame(robot_->body_list, robot_->body_length_list);
-  // steps_++;
+  steps_++;
+
   const size_t kNumSegs = robot_->body_list.size();
   const size_t kNumJoints = robot_->engine_list.size();
 
+  // Now propagate the amplitude from head to tail
+  const size_t kPropagationInterval =
+      0.2 * CH_C_2PI / omega_ / 0.01 / kNumJoints;
+  if (steps_ % kPropagationInterval == 0) {
+    for (size_t i = kNumJoints - 1; i != 0; --i) {
+      amplitudes_(i) = amplitudes_(i - 1);
+    }
+    amplitudes_(0) = default_amplitude_;
+  }
   // Clear all the forces in the contact force
   // container
   for (auto &force : contact_force_list_) {
@@ -239,16 +247,19 @@ void Controller::Step(double dt) {
     auto rft_force = robot_->body_list[i]->Get_accumulated_force();
     accum_force += rft_force;
     // fx
-    forces_contact(3 *i + 0) = contact_force_list_[i](0);
-    forces_media(3 *i + 0) = rft_force(0);
+    forces_contact(3 * i + 0) = contact_force_list_[i](0);
+    forces_media(3 * i + 0) = rft_force(0);
     // fz
-    forces_contact(3 *i + 1) = contact_force_list_[i](2);
-    forces_media(3 *i + 1) = rft_force(2);
+    forces_contact(3 * i + 1) = contact_force_list_[i](2);
+    forces_media(3 * i + 1) = rft_force(2);
     // Torque
-    forces_contact(3 *i + 2) = 0;
-    forces_media(3 *i + 2) = 0;
+    forces_contact(3 * i + 2) = 0;
+    forces_media(3 * i + 2) = 0;
   }
   // std::cout << accum_force << std::endl;
+  auto jacobian =
+      ComputeChainJacobianCoMFrame(robot_->body_list, robot_->body_length_list);
+
   auto torque_int =
       SolveChainInternalTorque(robot_->inertia, jacobian, forces_media);
   torques_media_ = torque_int.block(1, 0, kNumJoints, 1);
@@ -268,7 +279,7 @@ double Controller::GetContactTorque(size_t index, double t) {
 double Controller::GetAngle(size_t index, double t) {
   const double phase =
       double(index * num_waves_) / robot_->engine_list.size() * CH_C_2PI;
-  double desired_angle = default_amplitude_ * sin(omega_ * t + phase);
+  double desired_angle = amplitudes_(index) * sin(omega_ * t + phase);
   return desired_angle;
 }
 
@@ -276,7 +287,7 @@ double Controller::GetAngularSpeed(size_t index, double t) {
   const double phase =
       double(index * num_waves_) / robot_->engine_list.size() * CH_C_2PI;
   double desired_angular_speed =
-      default_amplitude_ * omega_ * cos(omega_ * t + phase);
+      amplitudes_(index) * omega_ * cos(omega_ * t + phase);
   return desired_angular_speed;
 }
 

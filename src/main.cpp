@@ -96,14 +96,11 @@ int main(int argc, char *argv[]) {
   ChIrrWizard::add_typical_Sky(ch_app.GetDevice());
   ChIrrWizard::add_typical_Lights(ch_app.GetDevice());
   ChIrrWizard::add_typical_Camera(ch_app.GetDevice(),
-                                  core::vector3df(0.0, 2, 0),
-                                  core::vector3df(0.1, 0, 0));
+                                  core::vector3df(0.0, 6, 2),
+                                  core::vector3df(0.1, 0, 2));
   scene::ICameraSceneNode *cur_cam =
       ch_app.GetSceneManager()->getActiveCamera();
   // cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
-  MyEventReceiver receiver(&ch_app);
-  ch_app.SetUserEventReceiver(&receiver);
-
   //// Create a RFT ground, set the scaling factor to be 1;
   RFTSystem rsystem(&ch_app);
   // now let us build the robot_builder;
@@ -116,6 +113,9 @@ int main(int argc, char *argv[]) {
 
   // Switch to controller
   Controller controller(&ch_system, &i_robot);
+  MyEventReceiver receiver(&ch_app, &controller);
+  ch_app.SetUserEventReceiver(&receiver);
+
   // controller.UsePositionControl();
   // get all the RFT body_list to interact
   // std::vector<RFTBody> &body_list = robot_builder.getRFTBodyList();
@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
   ch_app.SetVideoframeSave(true);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() <= 10.0) {
+  while (ch_app.GetDevice()->run()) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();
