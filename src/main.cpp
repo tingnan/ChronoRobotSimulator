@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
   controller.UseForceControl();
   // controller.UsePositionControl();
 
-  ch_app.SetVideoframeSave(true);
+  ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
 
   while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 25) {
