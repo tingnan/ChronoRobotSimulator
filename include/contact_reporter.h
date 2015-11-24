@@ -28,11 +28,11 @@ public:
     auto id_a = model_a->GetPhysicsItem()->GetIdentifier();
     auto id_b = model_b->GetPhysicsItem()->GetIdentifier();
 
-    if (id_a >= 0 && id_a < contact_force_list_->size() && id_b == -1) {
+    if (id_a >= 0 && id_a < contact_force_list_->size() && id_b == -2) {
       (*contact_force_list_)[id_a] -= contact_force_normal;
     }
 
-    if (id_b >= 0 && id_b < contact_force_list_->size() && id_a == -1) {
+    if (id_b >= 0 && id_b < contact_force_list_->size() && id_a == -2) {
       (*contact_force_list_)[id_b] = contact_force_normal;
     }
 

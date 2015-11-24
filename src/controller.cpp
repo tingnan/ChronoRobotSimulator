@@ -203,33 +203,76 @@ using namespace chrono;
 Controller::Controller(chrono::ChSystem *ch_system, Robot *i_robot)
     : ch_system_(ch_system), robot_(i_robot),
       contact_force_list_(robot_->body_list.size()),
-      amplitudes_(robot_->engine_list.size()),
-      average_contact_weight_(robot_->engine_list.size()) {
+      amplitudes_(robot_->engine_list.size()) {
   contact_reporter_ = new ExtractContactForce(&contact_force_list_);
   for (size_t i = 0; i < amplitudes_.rows(); ++i) {
     amplitudes_(i) = default_amplitude_;
-    average_contact_weight_(i) = 1;
   }
 }
 
-void Controller::SetDefaultAmplitude(double amp) { default_amplitude_ = amp; }
+void Controller::SetCommandAmplitude(double amp) { command_amplitude_ = amp; }
+
+void Controller::PushCommandToQueue(const Json::Value &command) {
+  command_queue_.push(command);
+}
+
+void Controller::ProcessCommandQueue(double dt) {
+  // number of steps for a full undulation period
+  const size_t kUndulationPeriod = CH_C_2PI / omega_ / dt;
+  if (steps_ % (2 * kUndulationPeriod) == 0) {
+    command_count_down_ = kUndulationPeriod / 2;
+    command_amplitude_ = 1.00;
+  } else {
+    if (command_count_down_ <= 0) {
+      command_amplitude_ = default_amplitude_;
+    } else {
+      command_count_down_--;
+    }
+  }
+  return;
+
+  if (command_count_down_ <= 0) {
+    if (!command_queue_.empty()) {
+      // Decode a command at the beginning of each cycle and set the
+      // count_down
+      // timer
+      auto command = command_queue_.front();
+      command_amplitude_ = command["amplitude"].asDouble();
+      command_count_down_ = command["count_down"].asInt();
+      command_queue_.pop();
+    } else {
+      command_count_down_ = 0;
+      command_amplitude_ = default_amplitude_;
+    }
+  } else {
+    command_count_down_--;
+  }
+}
 
 void Controller::Step(double dt) {
-
+  ProcessCommandQueue(dt);
   steps_++;
 
   const size_t kNumSegs = robot_->body_list.size();
   const size_t kNumJoints = robot_->engine_list.size();
 
   // Now propagate the amplitude from head to tail
+  const double time_step = dt;
   const size_t kPropagationInterval =
-      0.2 * CH_C_2PI / omega_ / 0.01 / kNumJoints;
+      2.0 * CH_C_2PI / omega_ / time_step / kNumJoints;
   if (steps_ % kPropagationInterval == 0) {
-    for (size_t i = kNumJoints - 1; i != 0; --i) {
-      amplitudes_(i) = amplitudes_(i - 1);
+    for (size_t i = 0; i < kNumJoints - 1; ++i) {
+      amplitudes_(i) = amplitudes_(i + 1);
     }
-    amplitudes_(0) = default_amplitude_;
+    amplitudes_(kNumJoints - 1) = command_amplitude_;
   }
+
+  // if (steps_ % 1250 < 500) {
+  //   default_amplitude_ = 0.8;
+  // } else {
+  //   default_amplitude_ = 0.1;
+  // }
+
   // Clear all the forces in the contact force
   // container
   for (auto &force : contact_force_list_) {
@@ -243,18 +286,21 @@ void Controller::Step(double dt) {
   ChVector<> desired_direction = ChVector<>(1.0, 0.0, 0.0);
   ChVector<> accum_force;
   for (size_t i = 0; i < kNumSegs; ++i) {
+    // std::cout << i << ", " << robot_->body_list[i]->GetMass() << " : "
+    //           << contact_force_list_[i] << std::endl;
     // get the rft_force
     auto rft_force = robot_->body_list[i]->Get_accumulated_force();
     accum_force += rft_force;
     // fx
-    forces_contact(3 * i + 0) = contact_force_list_[i](0);
-    forces_media(3 * i + 0) = rft_force(0);
+    forces_contact(3 *i + 0) = contact_force_list_[i](0);
+    forces_media(3 *i + 0) = rft_force(0);
     // fz
-    forces_contact(3 * i + 1) = contact_force_list_[i](2);
-    forces_media(3 * i + 1) = rft_force(2);
+    forces_contact(3 *i + 1) = contact_force_list_[i](2);
+    forces_media(3 *i + 1) = rft_force(2);
     // Torque
-    forces_contact(3 * i + 2) = 0;
-    forces_media(3 * i + 2) = 0;
+    forces_contact(3 *i + 2) = 0;
+    forces_media(3 *i + 2) = 0;
+    // std::cout << rft_force << std::endl;
   }
   // std::cout << accum_force << std::endl;
   auto jacobian =
@@ -263,6 +309,14 @@ void Controller::Step(double dt) {
   auto torque_int =
       SolveChainInternalTorque(robot_->inertia, jacobian, forces_media);
   torques_media_ = torque_int.block(1, 0, kNumJoints, 1);
+  // std::cout << amplitudes_.transpose() << std::endl;
+  // for (size_t i = 0; i < kNumJoints; ++i) {
+  //
+  //   auto rot_funct =
+  //       (ChFunction_Sine *)robot_->engine_list[i]->Get_rot_funct().get();
+  //
+  //   rot_funct->Set_amp(amplitudes_[i]);
+  // }
 }
 
 size_t Controller::GetNumEngines() { return robot_->engine_list.size(); }

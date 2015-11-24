@@ -90,14 +90,14 @@ int main(int argc, char *argv[]) {
 
   // create a gui ch_app with the chrono system
   ChIrrApp ch_app(&ch_system, L"A simple RFT example",
-                  core::dimension2d<u32>(650, 650), false, true,
+                  core::dimension2d<u32>(800, 800), false, true,
                   video::EDT_OPENGL);
   ChIrrWizard::add_typical_Logo(ch_app.GetDevice());
   ChIrrWizard::add_typical_Sky(ch_app.GetDevice());
   ChIrrWizard::add_typical_Lights(ch_app.GetDevice());
   ChIrrWizard::add_typical_Camera(ch_app.GetDevice(),
-                                  core::vector3df(0.0, 6, 2),
-                                  core::vector3df(0.1, 0, 2));
+                                  core::vector3df(1.4, 5, 0),
+                                  core::vector3df(1.5, 0, 0));
   scene::ICameraSceneNode *cur_cam =
       ch_app.GetSceneManager()->getActiveCamera();
   // cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
@@ -140,11 +140,12 @@ int main(int argc, char *argv[]) {
   // }
 
   controller.UseForceControl();
+  // controller.UsePositionControl();
 
-  ch_app.SetVideoframeSave(false);
+  ch_app.SetVideoframeSave(true);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run()) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 25) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();

@@ -4,7 +4,7 @@
 using namespace chrono;
 // The parameters for the function
 double ChFunctionController::Get_y(double t) {
-  double torque = ComputeDriveTorque(t) + 1.0 * GetMediaTorque(t);
+  double torque = ComputeDriveTorque(t) + 0.0 * GetMediaTorque(t);
   torque = std::max(std::min(torque_limit, torque), -torque_limit);
   return torque;
 }

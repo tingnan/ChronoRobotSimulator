@@ -67,11 +67,28 @@ bool MyEventReceiver::OnEvent(const SEvent &event) {
         space_key_down_ = false;
       }
     }
+
+    Json::Value command;
     if (event.KeyInput.Key == KEY_UP && event.KeyInput.PressedDown) {
-      controller_->SetDefaultAmplitude(0.7);
+
+      command["amplitude"] = 1.00;
+      command["count_down"] = 250;
+      controller_->PushCommandToQueue(command);
+      // controller_->SetDefaultAmplitude(0.80);
     }
-    if (event.KeyInput.Key == KEY_DOWN && event.KeyInput.PressedDown) {
-      controller_->SetDefaultAmplitude(0.3);
+    if (event.KeyInput.Key == KEY_LEFT && event.KeyInput.PressedDown) {
+      command["amplitude"] = 1.00;
+      command["count_down"] = 125;
+      controller_->PushCommandToQueue(command);
+
+      // controller_->SetDefaultAmplitude(0.10);
+    }
+    if (event.KeyInput.Key == KEY_RIGHT && event.KeyInput.PressedDown) {
+      command["amplitude"] = 0.80;
+      command["count_down"] = 375;
+      controller_->PushCommandToQueue(command);
+
+      // controller_->SetDefaultAmplitude(0.10);
     }
   }
 

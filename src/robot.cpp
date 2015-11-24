@@ -66,9 +66,9 @@ void TransformRFTMesh(const ChFrame<> &frame, RFTMesh &mesh) {
 
 void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params) {
   // Build a set of random collidables.
-  if (true) {
-    const size_t kGridSize = 10;
-    const double kGridDist = 0.4;
+  if (false) {
+    const size_t kGridSize = 50;
+    const double kGridDist = 0.18;
     const double kHeight = 0.2;
     const double kSigma = 0.15;
 
@@ -80,7 +80,7 @@ void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params) {
         double radius = fabs(normal_dist_radius(generator));
         // radius = 0.27;
         radius = std::max(radius, 0.01);
-        radius = 0.17;
+        radius = 0.02;
         ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
             radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
         body_ptr->SetBodyFixed(true);
@@ -91,6 +91,92 @@ void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params) {
         body_ptr->SetPos(ChVector<>(x_pos, 0, z_pos));
         ch_system->Add(body_ptr);
       }
+    }
+  }
+
+  if (false) {
+    const double kAngle = CH_C_PI_2 * 0.5;
+    const double kTunnelW = 0.1;
+    const double kTunnelH = 0.1;
+    const double kTunnelL = 1.5;
+    {
+      std::vector<ChVector<> > points;
+      points.emplace_back(0, -kTunnelH, kTunnelW / 2);
+      points.emplace_back(0, -kTunnelH, kTunnelW / 2 + kTunnelL);
+      points.emplace_back(kTunnelL * (1 + cos(kAngle)), -kTunnelH,
+                          kTunnelW / 2 + kTunnelL * sin(kAngle));
+      points.emplace_back(kTunnelL, -kTunnelH, kTunnelW / 2);
+
+      points.emplace_back(0, kTunnelH, kTunnelW / 2);
+      points.emplace_back(0, kTunnelH, kTunnelW / 2 + kTunnelL);
+      points.emplace_back(kTunnelL * (1 + cos(kAngle)), kTunnelH,
+                          kTunnelW / 2 + kTunnelL * sin(kAngle));
+      points.emplace_back(kTunnelL, kTunnelH, kTunnelW / 2);
+
+      ChSharedBodyPtr wall(
+          new ChBodyEasyConvexHullAuxRef(points, 1.0, true, true));
+      wall->SetBodyFixed(true);
+      wall->GetMaterialSurface()->SetFriction(kFriction);
+      ch_system->Add(wall);
+    }
+
+    {
+      std::vector<ChVector<> > points;
+      points.emplace_back(0, -kTunnelH, -kTunnelW / 2);
+      points.emplace_back(0, -kTunnelH, -3 * kTunnelW / 2);
+      points.emplace_back(kTunnelL + 2 * kTunnelW * tan(kAngle / 2), -kTunnelH,
+                          -3 * kTunnelW / 2);
+      points.emplace_back(kTunnelL + kTunnelW * tan(kAngle / 2), -kTunnelH,
+                          -kTunnelW / 2);
+
+      points.emplace_back(0, kTunnelH, -kTunnelW / 2);
+      points.emplace_back(0, kTunnelH, -3 * kTunnelW / 2);
+      points.emplace_back(kTunnelL + 2 * kTunnelW * tan(kAngle / 2), kTunnelH,
+                          -3 * kTunnelW / 2);
+      points.emplace_back(kTunnelL + kTunnelW * tan(kAngle / 2), kTunnelH,
+                          -kTunnelW / 2);
+      ChSharedBodyPtr wall(
+          new ChBodyEasyConvexHullAuxRef(points, 1.0, true, true));
+      wall->SetBodyFixed(true);
+      wall->GetMaterialSurface()->SetFriction(kFriction);
+      ch_system->Add(wall);
+    }
+
+    {
+      std::vector<ChVector<> > points;
+      points.emplace_back(kTunnelL + kTunnelW * tan(kAngle / 2), -kTunnelH,
+                          -kTunnelW / 2);
+      points.emplace_back(kTunnelL + 2 * kTunnelW * tan(kAngle / 2), -kTunnelH,
+                          -3 * kTunnelW / 2);
+      points.emplace_back(
+          (kTunnelL + 2 * kTunnelW * tan(kAngle / 2)) * (1 + cos(kAngle)),
+          -kTunnelH,
+          -3 * kTunnelW / 2 +
+              (kTunnelL + 2 * kTunnelW * tan(kAngle / 2)) * sin(kAngle));
+      points.emplace_back(
+          (kTunnelL + kTunnelW * tan(kAngle / 2)) * (1 + cos(kAngle)),
+          -kTunnelH, -kTunnelW / 2 +
+                         (kTunnelL + kTunnelW * tan(kAngle / 2)) * sin(kAngle));
+
+      points.emplace_back(kTunnelL + kTunnelW * tan(kAngle / 2), kTunnelH,
+                          -kTunnelW / 2);
+      points.emplace_back(kTunnelL + 2 * kTunnelW * tan(kAngle / 2), kTunnelH,
+                          -3 * kTunnelW / 2);
+      points.emplace_back(
+          (kTunnelL + 2 * kTunnelW * tan(kAngle / 2)) * (1 + cos(kAngle)),
+          kTunnelH,
+          -3 * kTunnelW / 2 +
+              (kTunnelL + 2 * kTunnelW * tan(kAngle / 2)) * sin(kAngle));
+      points.emplace_back(
+          (kTunnelL + kTunnelW * tan(kAngle / 2)) * (1 + cos(kAngle)), kTunnelH,
+          -kTunnelW / 2 +
+              (kTunnelL + kTunnelW * tan(kAngle / 2)) * sin(kAngle));
+
+      ChSharedBodyPtr wall(
+          new ChBodyEasyConvexHullAuxRef(points, 1.0, true, true));
+      wall->SetBodyFixed(true);
+      wall->GetMaterialSurface()->SetFriction(kFriction);
+      ch_system->Add(wall);
     }
   }
 }
@@ -145,14 +231,14 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     ground->SetBodyFixed(true);
     ground->SetPos(ChVector<>(0, -0.5, 0));
     ground->SetIdentifier(-2);
-    ground->GetMaterialSurface()->SetFriction(0.1);
+    ground->GetMaterialSurface()->SetFriction(0.0);
     ch_system->Add(ground);
     // the Snake params
-    const size_t kNumSegments = 25;
-    const double kL = 1.10;
+    const size_t kNumSegments = 30;
+    const double kL = 1.50;
     const double kW = 0.05;
     const double kLx = kL / kNumSegments;
-    ChVector<> center_pos(kL * 0.5, -kW * 0.5, 2.2);
+    ChVector<> center_pos(0.1, -kW * 0.5, 0);
     std::vector<ChSharedBodyPtr> body_container_;
     i_robot.inertia.resize(kNumSegments * 3, kNumSegments * 3);
     i_robot.inertia.setZero();

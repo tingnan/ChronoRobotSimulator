@@ -1,8 +1,10 @@
 #ifndef INCLUDE_CONTROLLER_H_
 #define INCLUDE_CONTROLLER_H_
 
+#include <queue>
 #include <vector>
 
+#include <json/json.h>
 #include <Eigen/Core>
 #include <motion_functions/ChFunction_Base.h>
 #include <physics/ChSystem.h>
@@ -28,9 +30,12 @@ public:
   void UseForceControl();
   void UsePositionControl();
   // Change the undultation amplitude of the snake
-  void SetDefaultAmplitude(double amp);
+  void SetCommandAmplitude(double amp);
+  void PushCommandToQueue(const Json::Value &command);
 
 private:
+  // Process the commands in the queue, one at a time
+  void ProcessCommandQueue(double dt);
   chrono::ChSystem *ch_system_;
   class Robot *robot_;
   // Contact force on each of the robot segment.
@@ -42,9 +47,11 @@ private:
   // Parametr for the CPG
   double omega_ = 0.2 * chrono::CH_C_2PI;
   double num_waves_ = 2.0;
-  double default_amplitude_ = 0.6;
+  double default_amplitude_ = 0.1;
+  double command_amplitude_ = default_amplitude_;
   Eigen::VectorXd amplitudes_;
-  Eigen::VectorXd average_contact_weight_;
+  std::queue<Json::Value> command_queue_;
+  int command_count_down_ = 0;
   // reference counting
   size_t steps_ = 0;
 };
