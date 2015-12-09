@@ -15,6 +15,8 @@ class ChLinkEngine;
 
 void SerializeBodies(std::vector<chrono::ChBody *> &body_list,
                      std::ofstream &mov_file);
+void SerializeContacts(std::vector<chrono::ChBody *> &body_list,
+                       std::ofstream &cot_file);
 void SerializeEngines(std::vector<chrono::ChLinkEngine *> &engine_list,
                       std::ofstream &jnt_file);
 void SerializeRFTForce(std::vector<RFTBody> &rft_body_list,

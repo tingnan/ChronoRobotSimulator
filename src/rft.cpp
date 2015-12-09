@@ -77,9 +77,9 @@ void DrawVector(irr::ChIrrApp *ch_app, const ChVector<> &pos,
   driver->setTransform(irr::video::ETS_WORLD, irr::core::matrix4());
   irr::video::SColor mcol;
   if (color == 0)
-    mcol = irr::video::SColor(70, 125, 0, 0);
+    mcol = irr::video::SColor(0, 125, 0, 0);
   if (color == 1)
-    mcol = irr::video::SColor(70, 0, 50, 255);
+    mcol = irr::video::SColor(0, 0, 125, 0);
   driver->draw3DLine(irr::core::vector3dfCH(pos),
                      irr::core::vector3dfCH(pos + foc * scale), mcol);
 }
@@ -113,7 +113,7 @@ void ForceHu(double deltah, double cospsi, double sinpsi, double area,
   // cospsi (n \cdot v), sinpsi (t \cdot v)
   // force is proportional to velocity as well
   double prefac = 9.81 * deltah * area * 2e3;
-  double mu_t = 0.30, mu_f = 0.11, mu_b = 0.14;
+  double mu_t = 0.20, mu_f = 0.11, mu_b = 0.14;
   *fnorm = prefac * mu_t * cospsi;
   *fpara = prefac * (mu_f * hevistep(sinpsi) + mu_b * (1 - hevistep(sinpsi))) *
            sinpsi;
@@ -260,8 +260,8 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
       tmp.Cross(position_list[i] - chbody->GetPos(), rbody.forces[i]);
       moment += tmp;
     }
-    // DrawVector(ch_app_, chbody->GetPos(), force, 3, 0);
-    // DrawVector(ch_app_, chbody->GetPos(), chbody->GetPos_dt(), 2, 1);
+    DrawVector(ch_app_, chbody->GetPos(), force, 3, 0);
+    DrawVector(ch_app_, chbody->GetPos(), chbody->GetPos_dt(), 3, 1);
     chbody->Empty_forces_accumulators();
     chbody->Accumulate_force(force, chbody->GetPos(), false);
     chbody->Accumulate_torque(moment, false);

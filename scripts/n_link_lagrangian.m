@@ -1,5 +1,5 @@
 clear
-n = 4;
+n = 10;
 l = 1;
 m = 1;
 
@@ -8,7 +8,7 @@ M = blkdiag(diag(m*ones(2*n,1)),diag(m*l^2/12*ones(n, 1)));
 % q = sym('q', [n, 1]);
 % dqdt = sym('dqdt', [n, 1]);
 q = zeros(n+2, 1);
-
+%%
 J(1,:) = [-l/2*sin(q(1)), zeros(1, n-1)];
 J(2,:) = [ l/2*cos(q(1)), zeros(1, n-1)];
 
@@ -101,6 +101,7 @@ Mqc = Jct*M*Jc;
 
 %%
 f = [0;1/3;0;-1;0;1;0;-1/3];
+f = [0 0 0 -1 0 0 0 0 0 1 0 0 0 0 0 0 1 0 0 0]';
 Qvc = Jcvt*f;
 linsolve(Mqc, Qvc);
 Qv = Jvt*f;

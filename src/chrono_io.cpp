@@ -10,6 +10,7 @@
 
 #include "include/vector_utility.h"
 #include "include/chrono_io.h"
+#include "include/contact_reporter.h"
 
 using namespace chrono;
 
@@ -65,8 +66,7 @@ void SerializeConstraints(std::vector<chrono::ChLink *> &constraint_list,
 
 void SerializeRFTForce(std::vector<RFTBody> &rft_body_list,
                        std::ofstream &rft_file) {
-  const size_t nnodes = rft_body_list.size();
-  for (int i = 0; i < nnodes; ++i) {
+  for (size_t i = 0; i < rft_body_list.size(); ++i) {
     rft_file << rft_body_list[i].chbody->GetIdentifier() << " ";
     ChVector<> total_force;
     for (size_t j = rft_body_list[i].forces.size(); j != 0; --j) {
@@ -75,4 +75,16 @@ void SerializeRFTForce(std::vector<RFTBody> &rft_body_list,
     rft_file << total_force << std::endl;
   }
   rft_file.flush();
+}
+
+void SerializeContacts(std::vector<ChBody *> &body_list,
+                       std::ofstream &cot_file) {
+  std::vector<ChVector<> > contact_force_list(body_list.size());
+  ContactExtractor contact_extractor(&contact_force_list);
+  ChSystem *ch_system = body_list[0]->GetSystem();
+  ch_system->GetContactContainer()->ReportAllContacts2(&contact_extractor);
+  for (size_t i = 0; i < contact_force_list.size(); ++i) {
+    cot_file << i << " " << contact_force_list[i] << std::endl;
+  }
+  cot_file.flush();
 }

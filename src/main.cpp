@@ -124,6 +124,7 @@ int main(int argc, char *argv[]) {
   std::ofstream mov_file("mov.dat");
   std::ofstream jnt_file("jnt.dat");
   std::ofstream rft_file("rft.dat");
+  std::ofstream cot_file("cot.dat");
 
   // begin simulation
 
@@ -145,7 +146,7 @@ int main(int argc, char *argv[]) {
   ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 25) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 12) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();
@@ -175,6 +176,7 @@ int main(int argc, char *argv[]) {
                   << std::endl;
         SerializeBodies(i_robot.body_list, mov_file);
         SerializeEngines(i_robot.engine_list, jnt_file);
+        SerializeContacts(i_robot.body_list, cot_file);
       }
       count = 0;
       continue;

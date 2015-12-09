@@ -17,7 +17,7 @@ using namespace chrono;
 namespace {
 const bool kEnableVisual = true;
 const bool kEnableCollision = true;
-const double kFriction = 0.1;
+const double kFriction = 0.3;
 const double kDensity = 2700.0;
 
 RFTMesh MeshRFTSquare(double lx, double ly, bool is_double_sided) {
@@ -94,8 +94,8 @@ void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params) {
     }
   }
 
-  if (false) {
-    const double kAngle = CH_C_PI_2 * 0.5;
+  if (true) {
+    const double kAngle = CH_C_PI_2;
     const double kTunnelW = 0.1;
     const double kTunnelH = 0.1;
     const double kTunnelL = 1.5;
@@ -238,7 +238,7 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     const double kL = 1.50;
     const double kW = 0.05;
     const double kLx = kL / kNumSegments;
-    ChVector<> center_pos(0.1, -kW * 0.5, 0);
+    ChVector<> center_pos(0.10, -kW * 0.5, 0.00);
     std::vector<ChSharedBodyPtr> body_container_;
     i_robot.inertia.resize(kNumSegments * 3, kNumSegments * 3);
     i_robot.inertia.setZero();

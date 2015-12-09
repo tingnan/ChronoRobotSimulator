@@ -204,7 +204,7 @@ Controller::Controller(chrono::ChSystem *ch_system, Robot *i_robot)
     : ch_system_(ch_system), robot_(i_robot),
       contact_force_list_(robot_->body_list.size()),
       amplitudes_(robot_->engine_list.size()) {
-  contact_reporter_ = new ExtractContactForce(&contact_force_list_);
+  contact_reporter_ = new ContactExtractor(&contact_force_list_);
   for (size_t i = 0; i < amplitudes_.rows(); ++i) {
     amplitudes_(i) = default_amplitude_;
   }
@@ -220,7 +220,7 @@ void Controller::ProcessCommandQueue(double dt) {
   // number of steps for a full undulation period
   const size_t kUndulationPeriod = CH_C_2PI / omega_ / dt;
   if (steps_ % (2 * kUndulationPeriod) == 0) {
-    command_count_down_ = kUndulationPeriod / 2;
+    command_count_down_ = kUndulationPeriod * 0.8;
     command_amplitude_ = 1.00;
   } else {
     if (command_count_down_ <= 0) {
