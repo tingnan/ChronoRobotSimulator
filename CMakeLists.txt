@@ -14,7 +14,7 @@ include_directories(${CHRONO_DIR}/include/bullet)
 link_directories(${CHRONO_DIR}/lib)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-	add_defnitions(-DNOMINMAX)
+	add_definitions(-DNOMINMAX)
 endif()
 
 file(GLOB SOURCES "src/*.cpp")
