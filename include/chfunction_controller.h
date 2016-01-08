@@ -21,7 +21,7 @@ public:
   double Get_y(double curr_t);
   double Get_y_dx(double new_t) { return 0; }
 
-  double p_gain = 1.20;
+  double p_gain = 1.00;
   double i_gain = 0.00;
   double d_gain = 1e-3;
   double torque_limit = 1.0;

@@ -217,36 +217,60 @@ void Controller::PushCommandToQueue(const Json::Value &command) {
 }
 
 void Controller::ProcessCommandQueue(double dt) {
-  // number of steps for a full undulation period
-  const size_t kUndulationPeriod = CH_C_2PI / omega_ / dt;
-  if (steps_ % (2 * kUndulationPeriod) == 0) {
-    command_count_down_ = kUndulationPeriod * 0.8;
-    command_amplitude_ = 1.00;
-  } else {
-    if (command_count_down_ <= 0) {
-      command_amplitude_ = default_amplitude_;
+  // we first do a  combination of high and low amplitude
+  // interval is now a full cycle
+  const size_t kCommandInterval = CH_C_2PI / omega_ / dt / 2;
+  std::random_device rd;
+  std::mt19937 generator(rd());
+  std::uniform_real_distribution<> duration(0.5, 1.0);
+  std::uniform_real_distribution<> amp(0, 1.0);
+  if (steps_ % kCommandInterval == 0) {
+    // generate a random number between [0.5, 1]
+    command_count_down_ = kCommandInterval; // * duration(generator);
+    if (steps_ % (2 * kCommandInterval) == 0) {
+      // even half
+      command_amplitude_ = 0.70;
     } else {
-      command_count_down_--;
-    }
-  }
-  return;
-
-  if (command_count_down_ <= 0) {
-    if (!command_queue_.empty()) {
-      // Decode a command at the beginning of each cycle and set the
-      // count_down
-      // timer
-      auto command = command_queue_.front();
-      command_amplitude_ = command["amplitude"].asDouble();
-      command_count_down_ = command["count_down"].asInt();
-      command_queue_.pop();
-    } else {
-      command_count_down_ = 0;
-      command_amplitude_ = default_amplitude_;
+      // odd half
+      command_amplitude_ = 0.25;
     }
   } else {
+    if (command_count_down_ < 0) {
+      command_amplitude_ = default_amplitude_;
+    }
     command_count_down_--;
   }
+
+  // number of steps for a full undulation period
+  // const size_t kUndulationPeriod = CH_C_2PI / omega_ / dt;
+  // if (steps_ % (2 * kUndulationPeriod) == 0) {
+  //   command_count_down_ = kUndulationPeriod * 0.8;
+  //   command_amplitude_ = 1.00;
+  // } else {
+  //   if (command_count_down_ <= 0) {
+  //     command_amplitude_ = default_amplitude_;
+  //   } else {
+  //     command_count_down_--;
+  //   }
+  // }
+  // return;
+  //
+  // if (command_count_down_ <= 0) {
+  //   if (!command_queue_.empty()) {
+  //     // Decode a command at the beginning of each cycle and set the
+  //     // count_down
+  //     // timer
+  //     auto command = command_queue_.front();
+  //     command_amplitude_ = command["amplitude"].asDouble();
+  //     command_count_down_ = command["count_down"].asInt();
+  //     command_queue_.pop();
+  //   } else {
+  //     command_count_down_ = 0;
+  //     command_amplitude_ = default_amplitude_;
+  //   }
+  // } else {
+  //   command_count_down_--;
+  // }
 }
 
 void Controller::Step(double dt) {

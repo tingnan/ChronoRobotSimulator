@@ -47,7 +47,7 @@ private:
   // Parametr for the CPG
   double omega_ = 0.2 * chrono::CH_C_2PI;
   double num_waves_ = 2.0;
-  double default_amplitude_ = 0.1;
+  double default_amplitude_ = 0.50;
   double command_amplitude_ = default_amplitude_;
   Eigen::VectorXd amplitudes_;
   std::queue<Json::Value> command_queue_;

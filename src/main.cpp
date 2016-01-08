@@ -96,8 +96,8 @@ int main(int argc, char *argv[]) {
   ChIrrWizard::add_typical_Sky(ch_app.GetDevice());
   ChIrrWizard::add_typical_Lights(ch_app.GetDevice());
   ChIrrWizard::add_typical_Camera(ch_app.GetDevice(),
-                                  core::vector3df(1.4, 5, 0),
-                                  core::vector3df(1.5, 0, 0));
+                                  core::vector3df(1.4, 5, 3.0),
+                                  core::vector3df(1.5, 0, 3.0));
   scene::ICameraSceneNode *cur_cam =
       ch_app.GetSceneManager()->getActiveCamera();
   // cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
@@ -143,10 +143,10 @@ int main(int argc, char *argv[]) {
   controller.UseForceControl();
   // controller.UsePositionControl();
 
-  ch_app.SetVideoframeSave(false);
+  ch_app.SetVideoframeSave(true);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 12) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 100) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();
