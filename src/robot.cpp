@@ -17,7 +17,7 @@ using namespace chrono;
 namespace {
 const bool kEnableVisual = true;
 const bool kEnableCollision = true;
-const double kFriction = 0.3;
+const double kFriction = 0.0;
 const double kDensity = 2700.0;
 
 RFTMesh MeshRFTSquare(double lx, double ly, bool is_double_sided) {
@@ -67,8 +67,8 @@ void TransformRFTMesh(const ChFrame<> &frame, RFTMesh &mesh) {
 void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params) {
   // Build a set of random collidables.
   if (true) {
-    const size_t kGridSize = 50;
-    const double kGridDist = 0.5;
+    const size_t kGridSize = 30;
+    const double kGridDist = params["spacing"].asDouble();
     const double kHeight = 0.2;
     const double kSigma = 0.15;
 
@@ -87,7 +87,7 @@ void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params) {
         body_ptr->SetIdentifier(-1);
         body_ptr->GetMaterialSurface()->SetFriction(kFriction);
         double x_pos = x_grid * kGridDist;
-        double z_pos = z_grid * kGridDist;
+        double z_pos = z_grid * kGridDist - 0.5 * kGridSize * kGridDist;
         body_ptr->SetPos(ChVector<>(x_pos, 0, z_pos));
         ch_system->Add(body_ptr);
       }
@@ -241,10 +241,14 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     ch_system->Add(ground);
     // the Snake params
     const size_t kNumSegments = 30;
-    const double kL = 1.50;
+    const double kL = 1.90;
     const double kW = 0.05;
     const double kLx = kL / kNumSegments;
-    ChVector<> center_pos(0.10, -kW * 0.5, 2.60);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> z_pos_gen(-0.10, 0.10);
+
+    ChVector<> center_pos(-kL * 0.5, -kW * 0.5, z_pos_gen(gen));
     std::vector<ChSharedBodyPtr> body_container_;
     i_robot.inertia.resize(kNumSegments * 3, kNumSegments * 3);
     i_robot.inertia.setZero();

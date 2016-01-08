@@ -96,23 +96,31 @@ int main(int argc, char *argv[]) {
   ChIrrWizard::add_typical_Sky(ch_app.GetDevice());
   ChIrrWizard::add_typical_Lights(ch_app.GetDevice());
   ChIrrWizard::add_typical_Camera(ch_app.GetDevice(),
-                                  core::vector3df(1.4, 5, 3.0),
-                                  core::vector3df(1.5, 0, 3.0));
+                                  core::vector3df(1.4, 5, 0.0),
+                                  core::vector3df(1.5, 0, 0.0));
   scene::ICameraSceneNode *cur_cam =
       ch_app.GetSceneManager()->getActiveCamera();
   // cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
   //// Create a RFT ground, set the scaling factor to be 1;
   RFTSystem rsystem(&ch_app);
   // now let us build the robot_builder;
+  Json::Value lattice_params;
+  if (argc < 2) {
+    std::cout << "no lattice params input!\n";
+    exit(0);
+  }
+  lattice_params["spacing"] = atof(argv[1]);
 
   Robot i_robot = BuildRobot(ch_app.GetSystem(), Json::Value());
-  BuildWorld(ch_app.GetSystem(), Json::Value());
+  BuildWorld(ch_app.GetSystem(), lattice_params);
   // Do visual binding.
   ch_app.AssetBindAll();
   ch_app.AssetUpdateAll();
 
   // Switch to controller
   Controller controller(&ch_system, &i_robot);
+
+  // Even receiver
   MyEventReceiver receiver(&ch_app, &controller);
   ch_app.SetUserEventReceiver(&receiver);
 
@@ -133,20 +141,20 @@ int main(int argc, char *argv[]) {
   // screen capture?
 
   // Assemble the robot
-
-  // while (ch_system.GetChTime() < 1.0) {
-  //   ch_app.DoStep();
-  //   std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
-  //             << std::endl;
-  // }
+  controller.UsePositionControl();
+  while (ch_system.GetChTime() < 1.5) {
+    ch_app.DoStep();
+    std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
+              << std::endl;
+  }
 
   controller.UseForceControl();
-  // controller.UsePositionControl();
+  //
 
-  ch_app.SetVideoframeSave(true);
+  ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 100) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 30) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();

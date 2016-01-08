@@ -112,8 +112,8 @@ void ForceHu(double deltah, double cospsi, double sinpsi, double area,
              double *fnorm, double *fpara) {
   // cospsi (n \cdot v), sinpsi (t \cdot v)
   // force is proportional to velocity as well
-  double prefac = 9.81 * deltah * area * 1e3;
-  double mu_t = 0.30, mu_f = 0.11, mu_b = 0.14;
+  double prefac = 9.81 * deltah * area * 5e2;
+  double mu_t = 0.30, mu_f = 0.10, mu_b = 0.10;
   *fnorm = prefac * mu_t * cospsi;
   *fpara = prefac * (mu_f * hevistep(sinpsi) + mu_b * (1 - hevistep(sinpsi))) *
            sinpsi;

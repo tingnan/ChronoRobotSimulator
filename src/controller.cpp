@@ -217,29 +217,30 @@ void Controller::PushCommandToQueue(const Json::Value &command) {
 }
 
 void Controller::ProcessCommandQueue(double dt) {
+  command_amplitude_ = default_amplitude_;
   // we first do a  combination of high and low amplitude
   // interval is now a full cycle
-  const size_t kCommandInterval = CH_C_2PI / omega_ / dt / 2;
-  std::random_device rd;
-  std::mt19937 generator(rd());
-  std::uniform_real_distribution<> duration(0.5, 1.0);
-  std::uniform_real_distribution<> amp(0, 1.0);
-  if (steps_ % kCommandInterval == 0) {
-    // generate a random number between [0.5, 1]
-    command_count_down_ = kCommandInterval; // * duration(generator);
-    if (steps_ % (2 * kCommandInterval) == 0) {
-      // even half
-      command_amplitude_ = 0.70;
-    } else {
-      // odd half
-      command_amplitude_ = 0.25;
-    }
-  } else {
-    if (command_count_down_ < 0) {
-      command_amplitude_ = default_amplitude_;
-    }
-    command_count_down_--;
-  }
+  // const size_t kCommandInterval = CH_C_2PI / omega_ / dt / 2;
+  // std::random_device rd;
+  // std::mt19937 generator(rd());
+  // std::uniform_real_distribution<> duration(0.5, 1.0);
+  // std::uniform_real_distribution<> amp(0, 1.0);
+  // if (steps_ % kCommandInterval == 0) {
+  //   // generate a random number between [0.5, 1]
+  //   command_count_down_ = kCommandInterval; // * duration(generator);
+  //   if (steps_ % (2 * kCommandInterval) == 0) {
+  //     // even half
+  //     command_amplitude_ = 0.70;
+  //   } else {
+  //     // odd half
+  //     command_amplitude_ = 0.25;
+  //   }
+  // } else {
+  //   if (command_count_down_ < 0) {
+  //     command_amplitude_ = default_amplitude_;
+  //   }
+  //   command_count_down_--;
+  // }
 
   // number of steps for a full undulation period
   // const size_t kUndulationPeriod = CH_C_2PI / omega_ / dt;

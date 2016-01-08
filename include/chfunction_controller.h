@@ -23,8 +23,8 @@ public:
 
   double p_gain = 1.00;
   double i_gain = 0.00;
-  double d_gain = 1e-3;
-  double torque_limit = 1.0;
+  double d_gain = 2e-3;
+  double torque_limit = 1.5;
   double angle_limit = 1.2;
 
 protected:
