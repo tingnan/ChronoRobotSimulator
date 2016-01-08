@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project("biped")
+project("chrono_sim")
 add_definitions(-std=c++11 -g)
 set(CHRONO_DIR /usr/local/chrono)
 set(IRRLICHT_INCLUDE_DIRS /usr/include/irrlicht /usr/local/include/irrlicht)
@@ -14,7 +14,7 @@ include_directories(${CHRONO_DIR}/include/bullet)
 link_directories(${CHRONO_DIR}/lib)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-	add_defnitions(-DNOMINMAX)
+	add_definitions(-DNOMINMAX)
 endif()
 
 file(GLOB SOURCES "src/*.cpp")
