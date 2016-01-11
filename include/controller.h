@@ -40,14 +40,14 @@ private:
   class Robot *robot_;
   // Contact force on each of the robot segment.
   chrono::ChReportContactCallback2 *contact_reporter_;
-  std::vector<chrono::ChVector<>> contact_force_list_;
+  std::vector<chrono::ChVector<> > contact_force_list_;
   // the torques at joints, computed from contact forces.
   Eigen::VectorXd torques_media_;
   Eigen::VectorXd torques_contact_;
   // Parameters for the position control.
-  double num_waves_ = 2.0;
-  double default_frequency_ = 0.2 * chrono::CH_C_2PI;
-  double default_amplitude_ = 0.50;
+  double num_waves_ = 1.0;
+  double default_frequency_ = 0.10 * chrono::CH_C_2PI;
+  double default_amplitude_ = 0.30;
   // Parameters for advanced control.
   double command_frequency_ = default_frequency_;
   double command_amplitude_ = default_amplitude_;

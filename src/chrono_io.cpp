@@ -41,8 +41,7 @@ void SerializeEngines(std::vector<chrono::ChLinkEngine *> &engine_list,
     jnt_file << engine_list[i]->GetIdentifier() << " ";
     auto localforce = link_coordsys.TransformDirectionLocalToParent(
         engine_list[i]->Get_react_force());
-    auto localtorque = link_coordsys.TransformDirectionLocalToParent(
-        engine_list[i]->Get_mot_torque());
+    auto localtorque = engine_list[i]->Get_mot_torque();
     jnt_file << localforce << " " << localtorque << "\n";
   }
   jnt_file.flush();

@@ -89,9 +89,8 @@ int main(int argc, char *argv[]) {
   ch_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
 
   // create a gui ch_app with the chrono system
-  ChIrrApp ch_app(&ch_system, L"A simple RFT example",
-                  core::dimension2d<u32>(800, 800), false, true,
-                  video::EDT_OPENGL);
+  ChIrrApp ch_app(&ch_system, L"snake", core::dimension2d<u32>(800, 800), false,
+                  true, video::EDT_OPENGL);
   ChIrrWizard::add_typical_Logo(ch_app.GetDevice());
   ChIrrWizard::add_typical_Sky(ch_app.GetDevice());
   ChIrrWizard::add_typical_Lights(ch_app.GetDevice());
@@ -148,13 +147,22 @@ int main(int argc, char *argv[]) {
   //             << std::endl;
   // }
   //
+  if (argc < 4) {
+    std::cout << "no command params input!\n";
+    exit(0);
+  }
+  Json::Value command_params;
+  command_params["duration"] = atof(argv[2]);
+  command_params["amplitude"] = atof(argv[3]);
+  controller.PushCommandToQueue(command_params);
+
   controller.UseForceControl();
   //
 
   ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 60) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 80) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();
@@ -168,23 +176,25 @@ int main(int argc, char *argv[]) {
 
     // io control
     if (count == save_step - 1) {
-      ch_app.GetVideoDriver()->beginScene(true, true,
-                                          video::SColor(255, 140, 161, 192));
-      ch_app.DrawAll();
+      // ch_app.GetVideoDriver()->beginScene(true, true,
+      //                                     video::SColor(255, 140, 161, 192));
+      // ch_app.DrawAll();
       ApplyRFTForce(i_robot.rft_body_list, rsystem);
       // draw a grid to help visualizattion
-      ChIrrTools::drawGrid(
-          ch_app.GetVideoDriver(), 5, 5, 100, 100,
-          ChCoordsys<>(ChVector<>(0, 0, 0), Q_from_AngX(CH_C_PI_2)),
-          video::SColor(255, 80, 100, 100), true);
-      ch_app.GetVideoDriver()->endScene();
+      // ChIrrTools::drawGrid(
+      //     ch_app.GetVideoDriver(), 5, 5, 100, 100,
+      //     ChCoordsys<>(ChVector<>(0, 0, 0), Q_from_AngX(CH_C_PI_2)),
+      //     video::SColor(255, 80, 100, 100), true);
+      // ch_app.GetVideoDriver()->endScene();
 
       if (!ch_app.GetPaused()) {
         std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
                   << std::endl;
-        SerializeBodies(i_robot.body_list, mov_file);
-        SerializeEngines(i_robot.engine_list, jnt_file);
-        SerializeContacts(i_robot.body_list, cot_file);
+        if (ch_system.GetChTime() > 20) {
+          SerializeBodies(i_robot.body_list, mov_file);
+          SerializeEngines(i_robot.engine_list, jnt_file);
+          SerializeContacts(i_robot.body_list, cot_file);
+        }
       }
       count = 0;
       continue;
