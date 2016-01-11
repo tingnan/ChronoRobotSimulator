@@ -248,7 +248,7 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> z_pos_gen(-0.10, 0.10);
 
-    ChVector<> center_pos(-kL * 0.5, -kW * 0.5, z_pos_gen(gen));
+    ChVector<> center_pos(-kL * 0.2, -kW * 0.5, z_pos_gen(gen));
     std::vector<ChSharedBodyPtr> body_container_;
     i_robot.inertia.resize(kNumSegments * 3, kNumSegments * 3);
     i_robot.inertia.setZero();
@@ -263,9 +263,9 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
             kLx, kW, kW, kDensity, kEnableCollision, kEnableVisual));
         i_robot.body_length_list.push_back(kLx);
       }
-      i_robot.inertia(3 * i + 0, 3 *i + 0) = body_ptr->GetMass();
-      i_robot.inertia(3 * i + 1, 3 *i + 1) = body_ptr->GetMass();
-      i_robot.inertia(3 * i + 2, 3 *i + 2) = body_ptr->GetInertiaXX().z;
+      i_robot.inertia(3 * i + 0, 3 * i + 0) = body_ptr->GetMass();
+      i_robot.inertia(3 * i + 1, 3 * i + 1) = body_ptr->GetMass();
+      i_robot.inertia(3 * i + 2, 3 * i + 2) = body_ptr->GetInertiaXX().z;
       body_ptr->SetPos(center_pos);
       body_ptr->SetIdentifier(i);
       body_ptr->GetMaterialSurface()->SetFriction(kFriction);

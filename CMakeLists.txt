@@ -10,7 +10,7 @@ include_directories(third_party)
 include_directories(${IRRLICHT_INCLUDE_DIRS})
 include_directories(${CHRONO_DIR}/include)
 include_directories(${CHRONO_DIR}/include/chrono)
-include_directories(${CHRONO_DIR}/include/bullet)
+include_directories(${CHRONO_DIR}/include/chrono/collision/bullet)
 link_directories(${CHRONO_DIR}/lib)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")

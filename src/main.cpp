@@ -141,20 +141,20 @@ int main(int argc, char *argv[]) {
   // screen capture?
 
   // Assemble the robot
-  controller.UsePositionControl();
-  while (ch_system.GetChTime() < 1.5) {
-    ch_app.DoStep();
-    std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
-              << std::endl;
-  }
-
+  // controller.UsePositionControl();
+  // while (ch_system.GetChTime() < 1.5) {
+  //   ch_app.DoStep();
+  //   std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
+  //             << std::endl;
+  // }
+  //
   controller.UseForceControl();
   //
 
   ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 30) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 60) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();

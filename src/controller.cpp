@@ -196,6 +196,23 @@ Eigen::VectorXd SolveChainInternalTorque(const Eigen::MatrixXd &inertia,
   // std::cout << interal_torques.transpose() << std::endl;
   return interal_torques;
 }
+
+void ShiftArray(Eigen::VectorXd &array, double default_value, bool forward) {
+  // if shift from beginning to end
+  size_t kArrayLength = array.rows();
+  if (forward) {
+    for (size_t i = 0; i < kArrayLength - 1; ++i) {
+      array(i + 1) = array(i);
+    }
+    array(0) = default_value;
+  } else {
+    for (size_t i = 0; i < kArrayLength - 1; ++i) {
+      array(i) = array(i + 1);
+    }
+    array(kArrayLength - 1) = default_value;
+  }
+}
+
 } // namespace
 
 using namespace chrono;
@@ -203,11 +220,13 @@ using namespace chrono;
 Controller::Controller(chrono::ChSystem *ch_system, Robot *i_robot)
     : ch_system_(ch_system), robot_(i_robot),
       contact_force_list_(robot_->body_list.size()),
-      amplitudes_(robot_->engine_list.size()) {
+      amplitudes_(robot_->engine_list.size()),
+      frequencies_(robot_->engine_list.size()),
+      cumulated_phases_(robot_->engine_list.size()) {
   contact_reporter_ = new ContactExtractor(&contact_force_list_);
-  for (size_t i = 0; i < amplitudes_.rows(); ++i) {
-    amplitudes_(i) = default_amplitude_;
-  }
+  amplitudes_.setZero();
+  frequencies_.setZero();
+  cumulated_phases_.setZero();
 }
 
 void Controller::SetCommandAmplitude(double amp) { command_amplitude_ = amp; }
@@ -217,10 +236,31 @@ void Controller::PushCommandToQueue(const Json::Value &command) {
 }
 
 void Controller::ProcessCommandQueue(double dt) {
-  command_amplitude_ = default_amplitude_;
+  const double kPropagationCycle = (1. / group_velocity_);
+
+  if (command_count_down_ > 0) {
+    command_count_down_--;
+    return;
+  }
+
+  if (command_count_ % 3 == 2) {
+    double duration = kPropagationCycle * 0.5;
+    command_count_down_ = duration / dt;
+    command_frequency_ = CH_C_PI / duration;
+    command_amplitude_ = 0.2;
+  } else {
+    double duration = kPropagationCycle * 0.25;
+    command_count_down_ = duration / dt;
+    command_frequency_ = CH_C_PI / duration;
+    command_amplitude_ = 0.5;
+  }
+
+  command_count_++;
+
+  // command_amplitude_ = default_amplitude_;
   // we first do a  combination of high and low amplitude
   // interval is now a full cycle
-  // const size_t kCommandInterval = CH_C_2PI / omega_ / dt / 2;
+  // const size_t kCommandInterval = CH_C_2PI / default_frequency_ / dt / 2;
   // std::random_device rd;
   // std::mt19937 generator(rd());
   // std::uniform_real_distribution<> duration(0.5, 1.0);
@@ -243,7 +283,7 @@ void Controller::ProcessCommandQueue(double dt) {
   // }
 
   // number of steps for a full undulation period
-  // const size_t kUndulationPeriod = CH_C_2PI / omega_ / dt;
+  // const size_t kUndulationPeriod = CH_C_2PI / default_frequency_ / dt;
   // if (steps_ % (2 * kUndulationPeriod) == 0) {
   //   command_count_down_ = kUndulationPeriod * 0.8;
   //   command_amplitude_ = 1.00;
@@ -276,27 +316,22 @@ void Controller::ProcessCommandQueue(double dt) {
 
 void Controller::Step(double dt) {
   ProcessCommandQueue(dt);
+  // Will not overflow.
   steps_++;
 
   const size_t kNumSegs = robot_->body_list.size();
   const size_t kNumJoints = robot_->engine_list.size();
 
   // Now propagate the amplitude from head to tail
-  const double time_step = dt;
-  const size_t kPropagationInterval =
-      2.0 * CH_C_2PI / omega_ / time_step / kNumJoints;
+  // Number of steps executed before a propagation happens
+  const size_t kPropagationInterval = (1. / group_velocity_) / kNumJoints / dt;
   if (steps_ % kPropagationInterval == 0) {
-    for (size_t i = 0; i < kNumJoints - 1; ++i) {
-      amplitudes_(i) = amplitudes_(i + 1);
-    }
-    amplitudes_(kNumJoints - 1) = command_amplitude_;
+    bool kEnableBackwardShift = 0;
+    ShiftArray(amplitudes_, command_amplitude_, kEnableBackwardShift);
+    ShiftArray(frequencies_, command_frequency_, kEnableBackwardShift);
   }
-
-  // if (steps_ % 1250 < 500) {
-  //   default_amplitude_ = 0.8;
-  // } else {
-  //   default_amplitude_ = 0.1;
-  // }
+  // For the simulation duration if won't overflow.
+  cumulated_phases_ += frequencies_ * dt;
 
   // Clear all the forces in the contact force
   // container
@@ -317,14 +352,14 @@ void Controller::Step(double dt) {
     auto rft_force = robot_->body_list[i]->Get_accumulated_force();
     accum_force += rft_force;
     // fx
-    forces_contact(3 *i + 0) = contact_force_list_[i](0);
-    forces_media(3 *i + 0) = rft_force(0);
+    forces_contact(3 * i + 0) = contact_force_list_[i](0);
+    forces_media(3 * i + 0) = rft_force(0);
     // fz
-    forces_contact(3 *i + 1) = contact_force_list_[i](2);
-    forces_media(3 *i + 1) = rft_force(2);
+    forces_contact(3 * i + 1) = contact_force_list_[i](2);
+    forces_media(3 * i + 1) = rft_force(2);
     // Torque
-    forces_contact(3 *i + 2) = 0;
-    forces_media(3 *i + 2) = 0;
+    forces_contact(3 * i + 2) = 0;
+    forces_media(3 * i + 2) = 0;
     // std::cout << rft_force << std::endl;
   }
   // std::cout << accum_force << std::endl;
@@ -356,30 +391,27 @@ double Controller::GetContactTorque(size_t index, double t) {
 }
 
 double Controller::GetAngle(size_t index, double t) {
-  const double phase =
-      double(index * num_waves_) / robot_->engine_list.size() * CH_C_2PI;
-  double desired_angle = amplitudes_(index) * sin(omega_ * t + phase);
+
+  double desired_angle = amplitudes_(index) * sin(cumulated_phases_(index));
   return desired_angle;
 }
 
 double Controller::GetAngularSpeed(size_t index, double t) {
-  const double phase =
-      double(index * num_waves_) / robot_->engine_list.size() * CH_C_2PI;
   double desired_angular_speed =
-      amplitudes_(index) * omega_ * cos(omega_ * t + phase);
+      amplitudes_(index) * frequencies_(index) * cos(cumulated_phases_(index));
   return desired_angular_speed;
 }
 
-void Controller::UsePositionControl() {
-  auto &engine_list = robot_->engine_list;
-  for (size_t i = 0; i < engine_list.size(); ++i) {
-    ChSharedPtr<ChFunction_Sine> engine_funct(new ChFunction_Sine(
-        double(i * num_waves_) / engine_list.size() * CH_C_2PI,
-        omega_ / CH_C_2PI, default_amplitude_));
-    engine_list[i]->Set_eng_mode(ChLinkEngine::ENG_MODE_ROTATION);
-    engine_list[i]->Set_rot_funct(engine_funct);
-  }
-}
+// void Controller::UsePositionControl() {
+//   auto &engine_list = robot_->engine_list;
+//   for (size_t i = 0; i < engine_list.size(); ++i) {
+//     ChSharedPtr<ChFunction_Sine> engine_funct(new ChFunction_Sine(
+//         double(i * num_waves_) / engine_list.size() * CH_C_2PI,
+//         default_frequency_ / CH_C_2PI, default_amplitude_));
+//     engine_list[i]->Set_eng_mode(ChLinkEngine::ENG_MODE_ROTATION);
+//     engine_list[i]->Set_rot_funct(engine_funct);
+//   }
+// }
 
 void Controller::UseForceControl() {
   for (size_t i = 0; i < GetNumEngines(); ++i) {
