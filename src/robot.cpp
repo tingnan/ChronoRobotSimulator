@@ -248,7 +248,7 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> z_pos_gen(-0.10, 0.10);
 
-    ChVector<> center_pos(-kL * 0.5, -kW * 0.5, z_pos_gen(gen));
+    ChVector<> center_pos(-kL * 0.0, -kW * 0.5, z_pos_gen(gen));
     std::vector<ChSharedBodyPtr> body_container_;
     i_robot.inertia.resize(kNumSegments * 3, kNumSegments * 3);
     i_robot.inertia.setZero();

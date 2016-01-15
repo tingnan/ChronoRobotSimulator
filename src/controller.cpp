@@ -236,7 +236,6 @@ void Controller::PushCommandToQueue(const Json::Value &command) {
 }
 
 void Controller::ProcessCommandQueue(double dt) {
-
   group_velocity_ = 0.05;
   const double kPropagationCycle = (1. / group_velocity_);
 

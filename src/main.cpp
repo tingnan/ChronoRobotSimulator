@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
   // screen capture?
 
   // Assemble the robot
-  // controller.UsePositionControl();
+  controller.UsePositionControl();
   // while (ch_system.GetChTime() < 1.5) {
   //   ch_app.DoStep();
   //   std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
   controller.UseForceControl();
   //
 
-  ch_app.SetVideoframeSave(false);
+  ch_app.SetVideoframeSave(true);
   ch_app.SetVideoframeSaveInterval(save_step);
 
   while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 80) {
@@ -176,16 +176,16 @@ int main(int argc, char *argv[]) {
 
     // io control
     if (count == save_step - 1) {
-      // ch_app.GetVideoDriver()->beginScene(true, true,
-      //                                     video::SColor(255, 140, 161, 192));
-      // ch_app.DrawAll();
+      ch_app.GetVideoDriver()->beginScene(true, true,
+                                          video::SColor(255, 140, 161, 192));
+      ch_app.DrawAll();
       ApplyRFTForce(i_robot.rft_body_list, rsystem);
       // draw a grid to help visualizattion
-      // ChIrrTools::drawGrid(
-      //     ch_app.GetVideoDriver(), 5, 5, 100, 100,
-      //     ChCoordsys<>(ChVector<>(0, 0, 0), Q_from_AngX(CH_C_PI_2)),
-      //     video::SColor(255, 80, 100, 100), true);
-      // ch_app.GetVideoDriver()->endScene();
+      ChIrrTools::drawGrid(
+          ch_app.GetVideoDriver(), 5, 5, 100, 100,
+          ChCoordsys<>(ChVector<>(0, 0, 0), Q_from_AngX(CH_C_PI_2)),
+          video::SColor(255, 80, 100, 100), true);
+      ch_app.GetVideoDriver()->endScene();
 
       if (!ch_app.GetPaused()) {
         std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()

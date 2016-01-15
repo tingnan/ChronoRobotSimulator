@@ -47,7 +47,7 @@ private:
   // Parameters for the position control.
   double num_waves_ = 1.0;
   double default_frequency_ = 0.10 * chrono::CH_C_2PI;
-  double default_amplitude_ = 0.30;
+  double default_amplitude_ = 0.35;
   // Parameters for advanced control.
   double command_frequency_ = default_frequency_;
   double command_amplitude_ = default_amplitude_;
