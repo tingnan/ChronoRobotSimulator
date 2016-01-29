@@ -1,10 +1,41 @@
-#include <unit_IRRLICHT/ChIrrApp.h>
+#include <chrono_irrlicht/ChIrrApp.h>
+#include <motion_functions/ChFunction_Sine.h>
 
+#include "json/json.h"
 #include "include/rft.h"
 #include "include/gui.h"
 #include "include/robot.h"
-#include "include/chrono_io.h"
 #include "include/controller.h"
+#include "include/chrono_io.h"
+
+namespace {
+std::string Stringify(const char *path) {
+  std::ifstream file_handle(path, std::ios::binary | std::ios::in);
+  std::string text;
+  if (file_handle.is_open()) {
+    file_handle.seekg(0, std::ios::end);
+    text.resize(file_handle.tellg());
+    file_handle.seekg(0, std::ios::beg);
+    file_handle.read(&text[0], text.size());
+    file_handle.close();
+  } else {
+    std::cout << "cannot open file\n";
+  }
+  return text;
+}
+
+Json::Value CreateJsonObject(const char *file) {
+  std::string content = Stringify(file);
+  Json::Reader reader;
+  Json::Value json_obj;
+  bool success = reader.parse(content, json_obj);
+  if (!success) {
+    std::cout << "not a valid json file" << std::endl;
+    exit(-1);
+  }
+  return json_obj;
+}
+} // namespace
 
 using namespace chrono;
 using namespace irr;
@@ -20,124 +51,156 @@ public:
                      ) {
     int idA = mmodelA->GetPhysicsItem()->GetIdentifier();
     int idB = mmodelB->GetPhysicsItem()->GetIdentifier();
-    if ((idA == -1 && idB != -1) || (idB == -1 && idA != -1))
+    if (idA == -1 || idB == -1 || idA == -2 || idB == -2)
       return true;
-    else
-      return false;
+    if (abs(idA - idB) > 1) {
+      return true;
+    }
+    return false;
   };
 };
 
-void ApplyRFTForce(std::vector<RFTBody> &body_list, RFTSystem &rsystem) {
-  const size_t nnodes = body_list.size();
-  for (unsigned int i = 0; i < nnodes; ++i) {
-    rsystem.InteractExt(body_list[i]);
+void ApplyRFTForce(std::vector<RFTBody> &rft_body_list, RFTSystem &rsystem) {
+  const size_t kNumBodies = rft_body_list.size();
+  for (unsigned int i = 0; i < kNumBodies; ++i) {
+    rsystem.InteractExt(rft_body_list[i]);
+  }
+}
+
+std::vector<RFTBody> BuildRFTBody(Robot *robot) {
+  auto &body_list = robot->body_list;
+  std::vector<RFTBody> rft_body_list;
+  for (size_t i = 0; i < body_list.size(); ++i) {
+    rft_body_list.emplace_back(body_list[i]);
   }
 }
 
 int main(int argc, char *argv[]) {
 
   // Create a ChronoENGINE physical system
-  ChSystem my_system;
+  ChSystem ch_system;
   SetChronoDataPath("/usr/local/chrono/data/");
-  my_system.SetIterLCPmaxItersSpeed(30);
-  my_system.SetIterLCPmaxItersStab(30);
-  // my_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
-  my_system.SetTol(1e-8);
-  my_system.Set_G_acc(ChVector<>(0, 0, 0));
+  ch_system.SetIterLCPmaxItersSpeed(30);
+  ch_system.SetIterLCPmaxItersStab(30);
+  // ch_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
+  ch_system.SetTol(1e-8);
+  ch_system.Set_G_acc(ChVector<>(0, 0, 0));
   ChBroadPhaseCallbackNew *mcallback = new ChBroadPhaseCallbackNew;
-  my_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
+  ch_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
 
-  // create a gui application with the chrono system
-  ChIrrApp application(&my_system, L"A simple RFT example",
-                       core::dimension2d<u32>(650, 650), false, true,
-                       video::EDT_OPENGL);
-  ChIrrWizard::add_typical_Logo(application.GetDevice());
-  ChIrrWizard::add_typical_Sky(application.GetDevice());
-  ChIrrWizard::add_typical_Lights(application.GetDevice());
-  ChIrrWizard::add_typical_Camera(application.GetDevice(),
-                                  core::vector3df(0, 0, 15),
-                                  core::vector3df(0, 0, 0));
+  // create a gui ch_app with the chrono system
+  ChIrrApp ch_app(&ch_system, L"snake", core::dimension2d<u32>(800, 800), false,
+                  true, video::EDT_OPENGL);
+  ChIrrWizard::add_typical_Logo(ch_app.GetDevice());
+  ChIrrWizard::add_typical_Sky(ch_app.GetDevice());
+  ChIrrWizard::add_typical_Lights(ch_app.GetDevice());
+  ChIrrWizard::add_typical_Camera(ch_app.GetDevice(),
+                                  core::vector3df(1.4, 5, 0.0),
+                                  core::vector3df(1.5, 0, 0.0));
   scene::ICameraSceneNode *cur_cam =
-      application.GetSceneManager()->getActiveCamera();
-  cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
-  MyEventReceiver receiver(&application);
-  application.SetUserEventReceiver(&receiver);
-
+      ch_app.GetSceneManager()->getActiveCamera();
+  // cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
   //// Create a RFT ground, set the scaling factor to be 1;
-  RFTSystem rsystem(&application);
-
+  RFTSystem rsystem(&ch_app);
   // now let us build the robot_builder;
-  ChronoRobotBuilder robot_builder(&application);
-  double beta = atof(argv[1]);
-  double gamma = atof(argv[2]);
-  robot_builder.BuildRobot(0.0, beta, gamma);
-  auto controller = robot_builder.GetController();
-  controller->EnablePositionControl();
-  // robot_builder.SetCollide(false);
-  application.AssetBindAll();
-  application.AssetUpdateAll();
+  Json::Value lattice_params;
+  if (argc < 2) {
+    std::cout << "no lattice params input!\n";
+    exit(0);
+  }
+  lattice_params["spacing"] = atof(argv[1]);
+
+  Robot i_robot = BuildRobot(ch_app.GetSystem(), Json::Value());
+  BuildWorld(ch_app.GetSystem(), lattice_params);
+  // Do visual binding.
+  ch_app.AssetBindAll();
+  ch_app.AssetUpdateAll();
+
+  // Switch to controller
+  Controller controller(&ch_system, &i_robot);
+
+  // Even receiver
+  MyEventReceiver receiver(&ch_app, &controller);
+  ch_app.SetUserEventReceiver(&receiver);
 
   // get all the RFT body_list to interact
-  std::vector<RFTBody> &body_list = robot_builder.getRFTBodyList();
+  // std::vector<RFTBody> &body_list = robot_builder.getRFTBodyList();
 
   // set io
-  IOManager io_manager(&my_system, "snake");
-  std::ofstream rft_file("snake.rft");
+  std::ofstream mov_file("mov.dat");
+  std::ofstream jnt_file("jnt.dat");
+  std::ofstream rft_file("rft.dat");
+  std::ofstream cot_file("cot.dat");
 
   // begin simulation
 
   int count = 0;
-  int savestep = 1e-2 / application.GetTimestep();
+  int save_step = 4e-2 / ch_app.GetTimestep();
+  // screen capture?
 
-  while (application.GetDevice()->run() && my_system.GetChTime() <= 10) {
+  // while (ch_system.GetChTime() < 1.5) {
+  //   ch_app.DoStep();
+  //   std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
+  //             << std::endl;
+  // }
+  //
+  if (argc < 4) {
+    std::cout << "no command params input!\n";
+    exit(0);
+  }
+  Json::Value command_params;
+  command_params["duration"] = atof(argv[2]);
+  command_params["amplitude"] = atof(argv[3]);
+  controller.SetDefaultParams(command_params);
+  controller.PushCommandToQueue(command_params);
+
+  controller.UseForceControl();
+  // controller.UsePositionControl();
+
+  ch_app.SetVideoframeSave(false);
+  ch_app.SetVideoframeSaveInterval(save_step);
+
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 60) {
     // the core simulation part
-    if (my_system.GetChTime() >= 1.0) {
-      ApplyRFTForce(body_list, rsystem);
-    }
-
-    application.DoStep();
+    controller.Step(ch_app.GetTimestep());
+    ch_app.DoStep();
 
     // ChVector<> cam_pos = robot_builder.GetRobotCoMPosition();
     // scene::ICameraSceneNode* cur_cam =
-    // application.GetSceneManager()->getActiveCamera();
+    // ch_app.GetSceneManager()->getActiveCamera();
     // cur_cam->setPosition(core::vector3df(cam_pos.x, cam_pos.y + 5.2,
     // cam_pos.z));
     // cur_cam->setTarget(core::vector3df(cam_pos.x, cam_pos.y, cam_pos.z));
 
     // io control
-    if (count == savestep - 1) {
-
-      application.GetVideoDriver()->beginScene(
-          true, true, video::SColor(255, 140, 161, 192));
-      application.DrawAll();
-
-      if (my_system.GetChTime() >= 1.0) {
-        ApplyRFTForce(body_list, rsystem);
-      }
-
+    if (count == save_step - 1) {
+      ch_app.GetVideoDriver()->beginScene(true, true,
+                                          video::SColor(255, 140, 161, 192));
+      ch_app.DrawAll();
+      ApplyRFTForce(i_robot.rft_body_list, rsystem);
       // draw a grid to help visualizattion
       ChIrrTools::drawGrid(
-          application.GetVideoDriver(), 5, 5, 100, 100,
+          ch_app.GetVideoDriver(), 5, 5, 100, 100,
           ChCoordsys<>(ChVector<>(0, 0, 0), Q_from_AngX(CH_C_PI_2)),
           video::SColor(255, 80, 100, 100), true);
-      application.GetVideoDriver()->endScene();
+      ch_app.GetVideoDriver()->endScene();
 
-      std::cout << std::fixed << std::setprecision(4) << my_system.GetChTime()
-                << std::endl;
-      io_manager.DumpNodInfo();
-      io_manager.DumpJntInfo();
-      io_manager.DumpContact();
-      DumpRFTInfo(body_list, rft_file);
+      if (!ch_app.GetPaused()) {
+        std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
+                  << std::endl;
+        if (ch_system.GetChTime() > 20) {
+          SerializeBodies(i_robot.body_list, mov_file);
+          SerializeEngines(i_robot.engine_list, jnt_file);
+          SerializeContacts(i_robot.body_list, cot_file);
+        }
+      }
       count = 0;
       continue;
     }
 
-    if (!application.GetPaused())
+    ApplyRFTForce(i_robot.rft_body_list, rsystem);
+    if (!ch_app.GetPaused())
       ++count;
-
-    // screen capture?
-    // application.SetVideoframeSave(true);
-    // application.SetVideoframeSaveInterval(savestep);
   }
 
   return 0;

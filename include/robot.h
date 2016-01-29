@@ -2,10 +2,8 @@
 #define INCLUDE_ROBOT_H_
 
 #include <vector>
-
+#include <Eigen/Core>
 #include <core/ChMath.h>
-
-#include "include/controller.h"
 
 class RFTBody;
 
@@ -15,23 +13,23 @@ class ChIrrApp;
 
 namespace chrono {
 class ChBody;
+class ChLinkEngine;
 }
 
-class ChronoRobotBuilder {
-public:
-  ChronoRobotBuilder(class irr::ChIrrApp *app);
-  void BuildRobot(double depth, double alpha, double beta);
-  void ResetRobot();
-  class RobotController *GetController() { return &controller_; }
-  std::vector<RFTBody> &getRFTBodyList() { return rft_body_list_; }
-  chrono::ChVector<> GetRobotCoMPosition();
-  void SetCollide(bool);
+namespace Json {
+class Value;
+}
 
-private:
-  class irr::ChIrrApp *app_;
-  std::vector<RFTBody> rft_body_list_;
-  std::vector<chrono::ChBody *> ch_body_list_;
-  RobotController controller_;
+// The Snake robot
+struct Robot {
+  std::vector<chrono::ChBody *> body_list;
+  std::vector<double> body_length_list;
+  std::vector<chrono::ChLinkEngine *> engine_list;
+  std::vector<RFTBody> rft_body_list;
+  Eigen::MatrixXd inertia;
 };
+
+void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params);
+Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params);
 
 #endif // INCLUDE_ROBOT_H_

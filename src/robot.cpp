@@ -1,235 +1,319 @@
 #include <array>
+#include <random>
+#include <algorithm>
 
-#include <unit_IRRLICHT/ChIrrApp.h>
-#include <assets/ChColorAsset.h>
-#include <physics/ChBodyEasy.h>
 #include <physics/ChSystem.h>
-#include "include/chfunction_squarewave.h"
-#include "include/controller.h"
+#include <physics/ChBodyEasy.h>
+#include <chrono_irrlicht/ChIrrApp.h>
+
+#include "json/json.h"
+#include "include/vector_utility.h"
 #include "include/robot.h"
 #include "include/rft.h"
-#include "json/json.h"
+#include "include/controller.h"
 
 using namespace chrono;
-using irr::ChIrrApp;
 
 namespace {
+const bool kEnableVisual = true;
+const bool kEnableCollision = true;
+const double kFriction = 0.0;
+const double kDensity = 5000.0;
 
-// A Wedge is defined as a triangle (x-y plane) extruded in z direction
-class Wedge {
-public:
-  void SetPoint(size_t index, double x, double y);
-  void Recenter();
-  ChVector<> GetPoint(size_t index) const;
-  ChVector<> GetNormal() const;
-  ChVector<> GetBaryCenter() const;
-  double GetTriangleArea() const;
-  double depth;
-
-private:
-  std::array<ChVector<>, 3> points_;
-};
-
-void Wedge::SetPoint(size_t index, double x, double y) {
-  index = index % 3;
-  points_[index](0) = x;
-  points_[index](1) = y;
-}
-
-void Wedge::Recenter() {
-  ChVector<> center = GetBaryCenter();
-  for (size_t i = 0; i < 3; ++i) {
-    points_[i] -= center;
+RFTMesh MeshRFTSquare(double lx, double ly, bool is_double_sided) {
+  const size_t kMaxNumPieces = 100;
+  size_t nx = 10, ny = 10;
+  if (lx > ly) {
+    nx = lx / ly * ny;
+  } else {
+    ny = ly / lx * nx;
   }
-}
-
-ChVector<> Wedge::GetPoint(size_t index) const {
-  index = index % 3;
-  return points_[index];
-}
-
-ChVector<> Wedge::GetNormal() const {
-  auto vec1 = points_[1] - points_[0];
-  auto vec2 = points_[2] - points_[1];
-  ChVector<> normal;
-  normal.Cross(vec1, vec2);
-  if (normal(2) < 0) {
-    return ChVector<>(0, 0, -1);
-  }
-  return ChVector<>(0, 0, 1);
-}
-
-ChVector<> Wedge::GetBaryCenter() const {
-  return (points_[0] + points_[1] + points_[2]) / 3;
-}
-
-double Wedge::GetTriangleArea() const {
-  ChVector<> area;
-  area.Cross(points_[1] - points_[0], points_[2] - points_[1]);
-  return fabs(area(2));
-}
-
-void MeshBox(ChVector<> sizes, std::vector<ChVector<> > &plist,
-             std::vector<ChVector<> > &nlist, std::vector<double> &alist,
-             std::vector<bool> &is_doubled_sided) {
-  double lx = sizes(0);
-  double ly = sizes(1);
-  double lz = sizes(2);
-  const size_t num_pieces = 30;
-  plist.resize(num_pieces);
-  nlist.resize(num_pieces);
-  alist.resize(num_pieces);
-  is_doubled_sided.resize(num_pieces);
-  const int npiece = plist.size();
-  for (int i = 0; i < npiece; ++i) {
-    is_doubled_sided[i] = false;
-    double denom = npiece / 2;
-    if (i < denom) {
-      double j = i + 0.5;
-      plist[i].x = lx * j / denom - lx / 2.;
-      plist[i].z = 0.5 * lz;
-      nlist[i].z = 1.;
-      alist[i] = lx * ly / denom;
-    } else {
-      double j = i + 0.5 - denom;
-      plist[i].x = lx * j / denom - lx / 2.;
-      plist[i].z = -0.5 * lz;
-      nlist[i].z = -1.;
-      alist[i] = lx * ly / denom;
+  double scale = double(nx * ny) / kMaxNumPieces;
+  nx = std::max(nx * scale, 1.0);
+  ny = std::max(ny * scale, 1.0);
+  // Now create the mesh
+  RFTMesh mesh;
+  double area = (lx * ly) / (nx * ny);
+  double wx = lx / nx;
+  double wy = ly / ny;
+  mesh.positions.reserve(nx * ny);
+  mesh.normals.reserve(nx * ny);
+  mesh.areas.reserve(nx * ny);
+  mesh.is_double_sided.reserve(nx * ny);
+  for (size_t i = 0; i < nx; ++i) {
+    for (size_t j = 0; j < ny; ++j) {
+      mesh.positions.emplace_back((i + 0.5) * wx - 0.5 * lx,
+                                  (j + 0.5) * wy - 0.5 * ly, 0);
+      mesh.normals.emplace_back(0, 0, 1);
+      mesh.areas.push_back(area);
+      mesh.is_double_sided.push_back(is_double_sided);
     }
   }
+
+  return mesh;
 }
 
-void MeshWedge(const Wedge &wedge, RFTBody &rbody) {
-  const size_t num_pieces = 30;
-  rbody.forces.resize(num_pieces);
-  rbody.positions.reserve(num_pieces);
-  rbody.normals.reserve(num_pieces);
-  rbody.areas.reserve(num_pieces);
-  rbody.is_double_sided.reserve(num_pieces);
-  const size_t np_per_side = num_pieces / 3;
-  auto side_normal = wedge.GetNormal();
-  for (size_t tri_idx = 0; tri_idx < 3; ++tri_idx) {
-    // For each edge
-    ChVector<> beg = wedge.GetPoint(tri_idx);
-    ChVector<> end = wedge.GetPoint(tri_idx + 1);
-    ChVector<> edge = end - beg;
-    double edge_length = edge.Length();
-    ChVector<> inplane_normal;
-    inplane_normal.Cross(edge, side_normal);
-    if (!inplane_normal.Normalize()) {
-      assert(0);
-    }
-    for (size_t i = 0; i < np_per_side; ++i) {
-      rbody.positions.emplace_back(beg + edge * double(i + 0.5) / np_per_side);
-      rbody.normals.emplace_back(inplane_normal);
-      rbody.areas.emplace_back(1.0 / np_per_side * edge_length * wedge.depth);
-      rbody.is_double_sided.push_back(false);
-    }
+void TransformRFTMesh(const ChFrame<> &frame, RFTMesh &mesh) {
+  const size_t kNumPoints = mesh.positions.size();
+  ChVector<> origin = frame.TransformLocalToParent(ChVector<>(0, 0, 0));
+  for (size_t i = 0; i < kNumPoints; ++i) {
+    mesh.positions[i] = frame.TransformLocalToParent(mesh.positions[i]);
+    mesh.normals[i] = frame.TransformLocalToParent(mesh.normals[i]) - origin;
   }
-}
-
-ChVector<> ParseTranslation(const Json::Value &translation) {
-  if (!translation.isNull()) {
-    return ChVector<>(translation[0].asDouble(), translation[1].asDouble(),
-                      translation[2].asDouble());
-  }
-  return ChVector<>();
-}
-
-ChQuaternion<> ParseRotation(const Json::Value &rotation) {
-  if (!rotation.isNull()) {
-    return ChQuaternion<>(rotation[0].asDouble(), rotation[1].asDouble(),
-                          rotation[2].asDouble(), rotation[3].asDouble());
-  }
-  return ChQuaternion<>(1, 0, 0, 0);
-}
-
-ChSharedPtr<ChBody> ParseBody(const Json::Value &body_obj) {
-  ChSharedPtr<ChBody> body_ptr(new ChBody);
-  body_ptr->SetBodyFixed(body_obj.get("is_dynamic", false).asBool());
-  // Parse the transformation of the body
-  auto &frame_obj = body_obj["frame"];
-  body_ptr->SetPos(ParseTranslation(frame_obj["translation"]));
-  body_ptr->SetRot(ParseRotation(frame_obj["rotation"]));
-  // Parse the collision shape and visual shape of the body
-  auto &shape_obj = body_obj["collision_shape"];
-  // Parse the material property of the body
-  auto &material_obj = body_obj["material"];
 }
 
 } // namespace
 
-ChronoRobotBuilder::ChronoRobotBuilder(ChIrrApp *pApp) : app_(pApp) {}
+void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params) {
+  // Build a set of random collidables.
+  if (true) {
+    const double kGridDist = params["spacing"].asDouble();
+    const size_t kGridSize = kGridDist < 0.35 ? 50 : 30;
+    const double kHeight = 0.2;
+    const double kSigma = 0.08;
 
-double SegA(double s, double A) {
-  // relative frame rotation between each seg;
-  return A * cos(CH_C_2PI * s);
-}
+    std::mt19937 generator(1);
+    std::normal_distribution<double> normal_dist_radius(0.0, kSigma);
 
-void ChronoRobotBuilder::BuildRobot(double depth, double beta, double gamma) {
-  ChSystem *ch_system = app_->GetSystem();
-  {
-    ChSharedBodyPtr ground(new ChBodyEasyBox(100, 1, 100, 1, false, false));
-    ground->SetBodyFixed(true);
-    ch_system->Add(ground);
-
-    // Create a wedge shape.
-    double lx = 5.0;
-    double ly = 3.0;
-    double lz = 5.0;
-
-    std::vector<ChVector<> > points;
-    Wedge wedge;
-    wedge.SetPoint(0, lx * 0.5, 0);
-    wedge.SetPoint(1, -lx * 0.5, 0);
-    wedge.SetPoint(2, 0, ly);
-    wedge.depth = lz;
-    wedge.Recenter();
-    for (int sign = -1; sign <= 1; sign += 2) {
-      for (size_t i = 0; i < 3; ++i) {
-        ChVector<> pt = wedge.GetPoint(i);
-        pt(2) = sign * lz * 0.5;
-        points.emplace_back(pt);
+    for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {
+      for (size_t z_grid = 0; z_grid < kGridSize; ++z_grid) {
+        double radius = fabs(normal_dist_radius(generator));
+        // radius = 0.27;
+        // radius = std::max(radius, 0.01);
+        radius = 0.05;
+        ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
+            radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
+        body_ptr->SetBodyFixed(true);
+        body_ptr->SetIdentifier(-1);
+        body_ptr->GetMaterialSurface()->SetFriction(kFriction);
+        double x_pos = x_grid * kGridDist + normal_dist_radius(generator);
+        double z_pos = z_grid * kGridDist - 0.5 * kGridSize * kGridDist +
+                       normal_dist_radius(generator);
+        body_ptr->SetPos(ChVector<>(x_pos, 0, z_pos));
+        ch_system->Add(body_ptr);
       }
     }
-    ChSharedBodyPtr foot(new ChBodyEasyConvexHull(points, 1, true, true));
-    foot->SetPos(ChVector<>(0, -depth, 0));
-    foot->SetRot(Q_from_AngZ(beta));
-    ch_system->Add(foot);
-    // Create the rft body of the foot
-    rft_body_list_.emplace_back(foot.get());
-    RFTBody &rbody = rft_body_list_.back();
-    MeshWedge(wedge, rbody);
-    // Now Add linear actuator.
-
-    ChVector<> origin(0, 0, 0);
-    ChQuaternion<> orientation = Q_from_AngX(CH_C_PI_2) * Q_from_AngY(gamma);
-    ChVector<> z_direction = orientation.Rotate(ChVector<>(0, 0, 1));
-
-    ChSharedPtr<ChLinkLockPrismatic> prismatic(new ChLinkLockPrismatic());
-    prismatic->Initialize(foot, ground, ChCoordsys<>(origin, orientation));
-    ch_system->Add(prismatic);
-
-    ChSharedPtr<ChLinkLinActuator> actuator(new ChLinkLinActuator());
-    actuator->Initialize(
-        foot, ground, false, ChCoordsys<>(foot->GetPos(), QUNIT),
-        ChCoordsys<>(foot->GetPos() + 100.0 * z_direction, QUNIT));
-    actuator->Set_lin_offset(100);
-    ch_system->Add(actuator);
-    controller_.AddEngine(actuator.get());
   }
+
+  // if (false) {
+  //   const double kAngle = CH_C_PI_2;
+  //   const double kTunnelW = 0.1;
+  //   const double kTunnelH = 0.1;
+  //   const double kTunnelL = 1.5;
+  //   {
+  //     std::vector<ChVector<> > points;
+  //     points.emplace_back(0, -kTunnelH, kTunnelW / 2);
+  //     points.emplace_back(0, -kTunnelH, kTunnelW / 2 + kTunnelL);
+  //     points.emplace_back(kTunnelL * (1 + cos(kAngle)), -kTunnelH,
+  //                         kTunnelW / 2 + kTunnelL * sin(kAngle));
+  //     points.emplace_back(kTunnelL, -kTunnelH, kTunnelW / 2);
+  //
+  //     points.emplace_back(0, kTunnelH, kTunnelW / 2);
+  //     points.emplace_back(0, kTunnelH, kTunnelW / 2 + kTunnelL);
+  //     points.emplace_back(kTunnelL * (1 + cos(kAngle)), kTunnelH,
+  //                         kTunnelW / 2 + kTunnelL * sin(kAngle));
+  //     points.emplace_back(kTunnelL, kTunnelH, kTunnelW / 2);
+  //
+  //     ChSharedBodyPtr wall(
+  //         new ChBodyEasyConvexHullAuxRef(points, 1.0, true, true));
+  //     wall->SetBodyFixed(true);
+  //     wall->GetMaterialSurface()->SetFriction(kFriction);
+  //     ch_system->Add(wall);
+  //   }
+  //
+  //   {
+  //     std::vector<ChVector<> > points;
+  //     points.emplace_back(0, -kTunnelH, -kTunnelW / 2);
+  //     points.emplace_back(0, -kTunnelH, -3 * kTunnelW / 2);
+  //     points.emplace_back(kTunnelL + 2 * kTunnelW * tan(kAngle / 2),
+  // -kTunnelH,
+  //                         -3 * kTunnelW / 2);
+  //     points.emplace_back(kTunnelL + kTunnelW * tan(kAngle / 2), -kTunnelH,
+  //                         -kTunnelW / 2);
+  //
+  //     points.emplace_back(0, kTunnelH, -kTunnelW / 2);
+  //     points.emplace_back(0, kTunnelH, -3 * kTunnelW / 2);
+  //     points.emplace_back(kTunnelL + 2 * kTunnelW * tan(kAngle / 2),
+  // kTunnelH,
+  //                         -3 * kTunnelW / 2);
+  //     points.emplace_back(kTunnelL + kTunnelW * tan(kAngle / 2), kTunnelH,
+  //                         -kTunnelW / 2);
+  //     ChSharedBodyPtr wall(
+  //         new ChBodyEasyConvexHullAuxRef(points, 1.0, true, true));
+  //     wall->SetBodyFixed(true);
+  //     wall->GetMaterialSurface()->SetFriction(kFriction);
+  //     ch_system->Add(wall);
+  //   }
+  //
+  //   {
+  //     std::vector<ChVector<> > points;
+  //     points.emplace_back(kTunnelL + kTunnelW * tan(kAngle / 2), -kTunnelH,
+  //                         -kTunnelW / 2);
+  //     points.emplace_back(kTunnelL + 2 * kTunnelW * tan(kAngle / 2),
+  // -kTunnelH,
+  //                         -3 * kTunnelW / 2);
+  //     points.emplace_back(
+  //         (kTunnelL + 2 * kTunnelW * tan(kAngle / 2)) * (1 + cos(kAngle)),
+  //         -kTunnelH,
+  //         -3 * kTunnelW / 2 +
+  //             (kTunnelL + 2 * kTunnelW * tan(kAngle / 2)) * sin(kAngle));
+  //     points.emplace_back(
+  //         (kTunnelL + kTunnelW * tan(kAngle / 2)) * (1 + cos(kAngle)),
+  //         -kTunnelH, -kTunnelW / 2 +
+  //                        (kTunnelL + kTunnelW * tan(kAngle / 2)) *
+  // sin(kAngle));
+  //
+  //     points.emplace_back(kTunnelL + kTunnelW * tan(kAngle / 2), kTunnelH,
+  //                         -kTunnelW / 2);
+  //     points.emplace_back(kTunnelL + 2 * kTunnelW * tan(kAngle / 2),
+  // kTunnelH,
+  //                         -3 * kTunnelW / 2);
+  //     points.emplace_back(
+  //         (kTunnelL + 2 * kTunnelW * tan(kAngle / 2)) * (1 + cos(kAngle)),
+  //         kTunnelH,
+  //         -3 * kTunnelW / 2 +
+  //             (kTunnelL + 2 * kTunnelW * tan(kAngle / 2)) * sin(kAngle));
+  //     points.emplace_back(
+  //         (kTunnelL + kTunnelW * tan(kAngle / 2)) * (1 + cos(kAngle)),
+  // kTunnelH,
+  //         -kTunnelW / 2 +
+  //             (kTunnelL + kTunnelW * tan(kAngle / 2)) * sin(kAngle));
+  //
+  //     ChSharedBodyPtr wall(
+  //         new ChBodyEasyConvexHullAuxRef(points, 1.0, true, true));
+  //     wall->SetBodyFixed(true);
+  //     wall->GetMaterialSurface()->SetFriction(kFriction);
+  //     ch_system->Add(wall);
+  //   }
+  // }
 }
 
-ChVector<> ChronoRobotBuilder::GetRobotCoMPosition() {
-  ChVector<> pos;
-  const size_t nnode = rft_body_list_.size();
-  double total_mass = 0;
-  for (int i = 0; i < nnode; ++i) {
-    ChVector<> tmppos = rft_body_list_[i].chbody->GetPos();
-    double tmpmass = rft_body_list_[i].chbody->GetMass();
-    pos += tmppos * tmpmass;
-    total_mass += tmpmass;
+Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
+  Robot i_robot;
+  // Build a snake body.
+  // if (false) {
+  //   const size_t kNumSegments = 4;
+  //   const double kW = 0.10;
+  //   const double kLx = 1.0;
+  //   ChVector<> center_pos(0, kLx * 0.5, 0);
+  //   std::vector<ChSharedBodyPtr> body_container_;
+  //   i_robot.inertia.resize(kNumSegments * 3, kNumSegments * 3);
+  //   i_robot.inertia.setZero();
+  //   for (size_t i = 0; i < kNumSegments; ++i) {
+  //     i_robot.inertia(3 * i + 0, 3 *i + 0) = 1;
+  //     i_robot.inertia(3 * i + 1, 3 *i + 1) = 1;
+  //     i_robot.inertia(3 * i + 2, 3 *i + 2) = 1 / 12;
+  //     ChSharedBodyPtr body_ptr;
+  //     body_ptr = ChSharedBodyPtr(new ChBodyEasyBox(
+  //         kLx, kW, kW, kDensity, kEnableCollision, kEnableVisual));
+  //     body_ptr->SetPos(center_pos);
+  //     body_ptr->SetIdentifier(i);
+  //     body_ptr->GetMaterialSurface()->SetFriction(0.1);
+  //     ch_system->Add(body_ptr);
+  //     i_robot.body_list.push_back(body_ptr.get());
+  //     i_robot.rft_body_list.emplace_back(body_ptr.get());
+  //     // Buid the RFT body
+  //     i_robot.rft_body_list.back().mesh = MeshRFTSquare(kLx, kW, true);
+  //     i_robot.rft_body_list.back().forces.resize(
+  //         i_robot.rft_body_list.back().mesh.positions.size());
+  //     i_robot.body_length_list.push_back(kLx);
+  //     body_container_.push_back(body_ptr);
+  //     if (i > 0) {
+  //       ChSharedPtr<ChLinkEngine> joint_ptr(new ChLinkEngine());
+  //       ChVector<> position = center_pos - ChVector<>(0.5 * kLx, 0, 0);
+  //       ChQuaternion<> orientation(Q_from_AngX(CH_C_PI_2));
+  //       joint_ptr->Initialize(body_container_[i], body_container_[i - 1],
+  //                             ChCoordsys<>(position, orientation));
+  //       i_robot.engine_list.push_back(joint_ptr.get());
+  //       joint_ptr->SetIdentifier(i);
+  //       ch_system->Add(joint_ptr);
+  //     }
+  //     center_pos += ChVector<>(kLx, 0, 0);
+  //   }
+  // }
+
+  if (true) {
+    ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
+        500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
+    ground->SetBodyFixed(true);
+    ground->SetPos(ChVector<>(0, -0.5, 0));
+    ground->SetIdentifier(-2);
+    ground->GetMaterialSurface()->SetFriction(0.0);
+    ch_system->Add(ground);
+    // the Snake params
+    const size_t kNumSegments = 30;
+    const double kL = 1.90;
+    const double kW = 0.09;
+    const double kLx = kL / kNumSegments;
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> z_pos_gen(-0.10, 0.10);
+
+    ChVector<> center_pos(-kL * 0.0, -kW * 0.5, z_pos_gen(gen));
+    std::vector<ChSharedBodyPtr> body_container_;
+    i_robot.inertia.resize(kNumSegments * 3, kNumSegments * 3);
+    i_robot.inertia.setZero();
+    for (size_t i = 0; i < kNumSegments; ++i) {
+      ChSharedBodyPtr body_ptr;
+      if (i == kNumSegments - 1) {
+        body_ptr = ChSharedBodyPtr(new ChBodyEasyCylinder(
+            kW * 0.5, kW, kDensity, kEnableCollision, kEnableVisual));
+        i_robot.body_length_list.push_back(kW);
+      } else {
+        body_ptr = ChSharedBodyPtr(new ChBodyEasyBox(
+            kLx, kW, kW, kDensity, kEnableCollision, kEnableVisual));
+        i_robot.body_length_list.push_back(kLx);
+      }
+      i_robot.inertia(3 * i + 0, 3 *i + 0) = body_ptr->GetMass();
+      i_robot.inertia(3 * i + 1, 3 *i + 1) = body_ptr->GetMass();
+      i_robot.inertia(3 * i + 2, 3 *i + 2) = body_ptr->GetInertiaXX().z;
+      body_ptr->SetPos(center_pos);
+      body_ptr->SetIdentifier(i);
+      body_ptr->GetMaterialSurface()->SetFriction(kFriction);
+      ch_system->Add(body_ptr);
+      i_robot.body_list.push_back(body_ptr.get());
+      i_robot.rft_body_list.emplace_back(body_ptr.get());
+      // Buid the RFT body
+      i_robot.rft_body_list.back().mesh = MeshRFTSquare(kLx, kW, true);
+      i_robot.rft_body_list.back().forces.resize(
+          i_robot.rft_body_list.back().mesh.positions.size());
+      body_container_.push_back(body_ptr);
+      // The engines.
+      if (i > 0) {
+        ChSharedPtr<ChLinkEngine> joint_ptr(new ChLinkEngine());
+        ChVector<> position = center_pos - ChVector<>(0.5 * kLx, 0, 0);
+        ChQuaternion<> orientation(Q_from_AngX(CH_C_PI_2));
+        joint_ptr->Initialize(body_container_[i], body_container_[i - 1],
+                              ChCoordsys<>(position, orientation));
+        i_robot.engine_list.push_back(joint_ptr.get());
+        joint_ptr->SetIdentifier(i);
+        ch_system->Add(joint_ptr);
+      }
+
+      if (true) {
+        // The joints that maintain the snake in plane.
+        ChSharedPtr<ChLinkLockPlanePlane> inplanelink(new ChLinkLockPlanePlane);
+        inplanelink->Initialize(
+            ground, body_ptr,
+            ChCoordsys<>(ChVector<>(), Q_from_AngX(CH_C_PI_2)));
+        ch_system->Add(inplanelink);
+      }
+
+      if (false) {
+        // Add a cylinder at the joint.
+        ChSharedPtr<ChBodyEasyCylinder> cylinder_ptr(new ChBodyEasyCylinder(
+            kW * 0.5, kW, kDensity, kEnableCollision, kEnableVisual));
+        cylinder_ptr->SetPos(center_pos + ChVector<>(kLx * 0.5, 0, 0));
+        cylinder_ptr->SetIdentifier(i + 100);
+        ch_system->Add(cylinder_ptr);
+        ChSharedPtr<ChLinkLockLock> link(new ChLinkLockLock);
+        link->Initialize(body_ptr, cylinder_ptr, ChCoordsys<>(VNULL));
+        ch_system->Add(link);
+      }
+
+      center_pos += ChVector<>(kLx, 0, 0);
+    }
   }
-  return pos / total_mass;
+
+  return i_robot;
 }
