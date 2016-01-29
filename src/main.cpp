@@ -123,7 +123,6 @@ int main(int argc, char *argv[]) {
   MyEventReceiver receiver(&ch_app, &controller);
   ch_app.SetUserEventReceiver(&receiver);
 
-  // controller.UsePositionControl();
   // get all the RFT body_list to interact
   // std::vector<RFTBody> &body_list = robot_builder.getRFTBodyList();
 
@@ -139,8 +138,6 @@ int main(int argc, char *argv[]) {
   int save_step = 4e-2 / ch_app.GetTimestep();
   // screen capture?
 
-  // Assemble the robot
-  controller.UsePositionControl();
   // while (ch_system.GetChTime() < 1.5) {
   //   ch_app.DoStep();
   //   std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
@@ -154,15 +151,16 @@ int main(int argc, char *argv[]) {
   Json::Value command_params;
   command_params["duration"] = atof(argv[2]);
   command_params["amplitude"] = atof(argv[3]);
+  controller.SetDefaultParams(command_params);
   controller.PushCommandToQueue(command_params);
 
   controller.UseForceControl();
-  //
+  // controller.UsePositionControl();
 
-  ch_app.SetVideoframeSave(true);
+  ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 80) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 60) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();

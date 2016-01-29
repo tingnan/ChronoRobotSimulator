@@ -229,7 +229,10 @@ Controller::Controller(chrono::ChSystem *ch_system, Robot *i_robot)
   cumulated_phases_.setZero();
 }
 
-void Controller::SetCommandAmplitude(double amp) { command_amplitude_ = amp; }
+void Controller::SetDefaultParams(const Json::Value &command) {
+  num_waves_ = 0.5 / command.get("duration", 0.25).asDouble();
+  default_amplitude_ = command.get("amplitude", 0.5).asDouble();
+}
 
 void Controller::PushCommandToQueue(const Json::Value &command) {
   command_queue_.push(command);

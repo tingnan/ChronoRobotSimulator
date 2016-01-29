@@ -30,7 +30,7 @@ public:
   void UseForceControl();
   void UsePositionControl();
   // Change the undultation amplitude of the snake
-  void SetCommandAmplitude(double amp);
+  void SetDefaultParams(const Json::Value &command);
   void PushCommandToQueue(const Json::Value &command);
 
 private:

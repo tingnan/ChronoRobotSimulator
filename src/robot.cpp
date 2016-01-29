@@ -70,9 +70,9 @@ void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params) {
     const double kGridDist = params["spacing"].asDouble();
     const size_t kGridSize = kGridDist < 0.35 ? 50 : 30;
     const double kHeight = 0.2;
-    const double kSigma = 0.15;
+    const double kSigma = 0.08;
 
-    std::mt19937 generator(0);
+    std::mt19937 generator(1);
     std::normal_distribution<double> normal_dist_radius(0.0, kSigma);
 
     for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {
@@ -80,14 +80,15 @@ void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params) {
         double radius = fabs(normal_dist_radius(generator));
         // radius = 0.27;
         // radius = std::max(radius, 0.01);
-        radius = 0.03;
+        radius = 0.05;
         ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
             radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
         body_ptr->SetBodyFixed(true);
         body_ptr->SetIdentifier(-1);
         body_ptr->GetMaterialSurface()->SetFriction(kFriction);
-        double x_pos = x_grid * kGridDist;
-        double z_pos = z_grid * kGridDist - 0.5 * kGridSize * kGridDist;
+        double x_pos = x_grid * kGridDist + normal_dist_radius(generator);
+        double z_pos = z_grid * kGridDist - 0.5 * kGridSize * kGridDist +
+                       normal_dist_radius(generator);
         body_ptr->SetPos(ChVector<>(x_pos, 0, z_pos));
         ch_system->Add(body_ptr);
       }
@@ -242,7 +243,7 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     // the Snake params
     const size_t kNumSegments = 30;
     const double kL = 1.90;
-    const double kW = 0.05;
+    const double kW = 0.09;
     const double kLx = kL / kNumSegments;
     std::random_device rd;
     std::mt19937 gen(rd());
