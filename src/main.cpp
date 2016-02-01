@@ -102,6 +102,7 @@ int main(int argc, char *argv[]) {
       ch_app.GetSceneManager()->getActiveCamera();
   //// Create a RFT ground, set the scaling factor to be 1;
   RFTSystem rsystem(&ch_app);
+
   // now let us build the robot_builder;
   Json::Value lattice_params;
   if (argc < 2) {
@@ -109,15 +110,12 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
   lattice_params["spacing"] = atof(argv[1]);
-
-  Robot i_robot = BuildRobot(ch_app.GetSystem(), Json::Value());
   BuildWorld(ch_app.GetSystem(), lattice_params);
+  Robot i_robot = BuildRobot(ch_app.GetSystem(), Json::Value());
+
   // Do visual binding.
   ch_app.AssetBindAll();
   ch_app.AssetUpdateAll();
-
-  // Switch to controller
-  Controller controller(&ch_system, &i_robot);
 
   // Even receiver
   MyEventReceiver receiver(&ch_app, &controller);
@@ -136,7 +134,9 @@ int main(int argc, char *argv[]) {
 
   int count = 0;
   int save_step = 4e-2 / ch_app.GetTimestep();
-  // screen capture?
+
+  // Use a controller
+  Controller controller(&ch_system, &i_robot);
 
   if (argc < 4) {
     std::cout << "no command params input!\n";
@@ -149,6 +149,7 @@ int main(int argc, char *argv[]) {
   controller.PushCommandToQueue(command_params);
   controller.EnablePosMotorControl();
 
+  // screen capture?
   ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
 
