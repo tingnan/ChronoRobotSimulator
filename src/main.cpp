@@ -100,7 +100,6 @@ int main(int argc, char *argv[]) {
                                   core::vector3df(1.5, 0, 0.0));
   scene::ICameraSceneNode *cur_cam =
       ch_app.GetSceneManager()->getActiveCamera();
-  // cur_cam->setRotation(irr::core::vector3df(0, 90, 0));
   //// Create a RFT ground, set the scaling factor to be 1;
   RFTSystem rsystem(&ch_app);
   // now let us build the robot_builder;
@@ -139,12 +138,6 @@ int main(int argc, char *argv[]) {
   int save_step = 4e-2 / ch_app.GetTimestep();
   // screen capture?
 
-  // while (ch_system.GetChTime() < 1.5) {
-  //   ch_app.DoStep();
-  //   std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
-  //             << std::endl;
-  // }
-  //
   if (argc < 4) {
     std::cout << "no command params input!\n";
     exit(0);
@@ -164,13 +157,6 @@ int main(int argc, char *argv[]) {
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();
 
-    // ChVector<> cam_pos = robot_builder.GetRobotCoMPosition();
-    // scene::ICameraSceneNode* cur_cam =
-    // ch_app.GetSceneManager()->getActiveCamera();
-    // cur_cam->setPosition(core::vector3df(cam_pos.x, cam_pos.y + 5.2,
-    // cam_pos.z));
-    // cur_cam->setTarget(core::vector3df(cam_pos.x, cam_pos.y, cam_pos.z));
-
     // io control
     if (count == save_step - 1) {
       ch_app.GetVideoDriver()->beginScene(true, true,
@@ -188,9 +174,6 @@ int main(int argc, char *argv[]) {
         std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
                   << std::endl;
         if (ch_system.GetChTime() > 20) {
-          // SerializeBodies(i_robot.body_list, mov_file);
-          // SerializeEngines(i_robot.engine_list, jnt_file);
-          // SerializeContacts(i_robot.body_list, cot_file);
         }
       }
       count = 0;
