@@ -78,12 +78,12 @@ void SerializeRFTForce(std::vector<RFTBody> &rft_body_list,
 
 void SerializeContacts(std::vector<ChBody *> &body_list,
                        std::ofstream &cot_file) {
-  std::vector<ChVector<> > contact_force_list(body_list.size());
-  ContactExtractor contact_extractor(&contact_force_list);
-  ChSystem *ch_system = body_list[0]->GetSystem();
-  ch_system->GetContactContainer()->ReportAllContacts2(&contact_extractor);
-  for (size_t i = 0; i < contact_force_list.size(); ++i) {
-    cot_file << i << " " << contact_force_list[i] << std::endl;
-  }
-  cot_file.flush();
+  // std::vector<ChVector<> > contact_force_list(body_list.size());
+  // ContactExtractor contact_extractor(&contact_force_list);
+  // ChSystem *ch_system = body_list[0]->GetSystem();
+  // ch_system->GetContactContainer()->ReportAllContacts2(&contact_extractor);
+  // for (size_t i = 0; i < contact_force_list.size(); ++i) {
+  //   cot_file << i << " " << contact_force_list[i] << std::endl;
+  // }
+  // cot_file.flush();
 }

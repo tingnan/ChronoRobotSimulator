@@ -232,92 +232,13 @@ void Controller::PushCommandToQueue(const Json::Value &command) {
 }
 
 void Controller::ProcessCommandQueue(double dt) {
-  group_velocity_ = 0.05;
-  const double kPropagationCycle = (1. / group_velocity_);
-
-  if (ch_system_->GetChTime() < 100.0) {
-    auto command = command_queue_.front();
-    double duration =
-        kPropagationCycle * command.get("duration", 0.25).asDouble();
-    command_frequency_ = CH_C_PI / duration;
-    command_amplitude_ = command.get("amplitude", 0.5).asDouble();
-    return;
-  }
-
-  // if (command_count_down_ > 0) {
-  //   command_count_down_--;
-  //   return;
-  // }
-  //
-  // if (command_count_ % 3 == 2) {
-  //   double duration = kPropagationCycle * 0.45;
-  //   command_count_down_ = duration / dt;
-  //   command_frequency_ = CH_C_PI / duration;
-  //   command_amplitude_ = 0.2;
-  // } else {
-  //   double duration = kPropagationCycle * 0.25;
-  //   command_count_down_ = duration / dt;
-  //   command_frequency_ = CH_C_PI / duration;
-  //   command_amplitude_ = 0.5;
-  // }
-  //
-  // command_count_++;
-
-  // command_amplitude_ = default_amplitude_;
-  // we first do a  combination of high and low amplitude
-  // interval is now a full cycle
-  // const size_t kCommandInterval = CH_C_2PI / default_frequency_ / dt / 2;
-  // std::random_device rd;
-  // std::mt19937 generator(rd());
-  // std::uniform_real_distribution<> duration(0.5, 1.0);
-  // std::uniform_real_distribution<> amp(0, 1.0);
-  // if (steps_ % kCommandInterval == 0) {
-  //   // generate a random number between [0.5, 1]
-  //   command_count_down_ = kCommandInterval; // * duration(generator);
-  //   if (steps_ % (2 * kCommandInterval) == 0) {
-  //     // even half
-  //     command_amplitude_ = 0.70;
-  //   } else {
-  //     // odd half
-  //     command_amplitude_ = 0.25;
-  //   }
-  // } else {
-  //   if (command_count_down_ < 0) {
-  //     command_amplitude_ = default_amplitude_;
-  //   }
-  //   command_count_down_--;
-  // }
-
-  // number of steps for a full undulation period
-  // const size_t kUndulationPeriod = CH_C_2PI / default_frequency_ / dt;
-  // if (steps_ % (2 * kUndulationPeriod) == 0) {
-  //   command_count_down_ = kUndulationPeriod * 0.8;
-  //   command_amplitude_ = 1.00;
-  // } else {
-  //   if (command_count_down_ <= 0) {
-  //     command_amplitude_ = default_amplitude_;
-  //   } else {
-  //     command_count_down_--;
-  //   }
-  // }
-  // return;
-  //
-  // if (command_count_down_ <= 0) {
-  //   if (!command_queue_.empty()) {
-  //     // Decode a command at the beginning of each cycle and set the
-  //     // count_down
-  //     // timer
-  //     auto command = command_queue_.front();
-  //     command_amplitude_ = command["amplitude"].asDouble();
-  //     command_count_down_ = command["count_down"].asInt();
-  //     command_queue_.pop();
-  //   } else {
-  //     command_count_down_ = 0;
-  //     command_amplitude_ = default_amplitude_;
-  //   }
-  // } else {
-  //   command_count_down_--;
-  // }
+  // group_velocity_ = 0.05;
+  // const double kPropagationCycle = (1. / group_velocity_);
+  // auto command = command_queue_.front();
+  // double duration =
+  //     kPropagationCycle * command.get("duration", 0.25).asDouble();
+  // command_frequency_ = CH_C_PI / duration;
+  // command_amplitude_ = command.get("amplitude", 0.5).asDouble();
 }
 
 void Controller::Step(double dt) {
@@ -330,20 +251,19 @@ void Controller::Step(double dt) {
 
   // Now propagate the amplitude from head to tail
   // Number of steps executed before a propagation happens
-  const size_t kPropagationInterval = (1. / group_velocity_) / kNumJoints / dt;
-  if (steps_ % kPropagationInterval == 0) {
-    bool kEnableBackwardShift = 0;
-    ShiftArray(amplitudes_, command_amplitude_, kEnableBackwardShift);
-    ShiftArray(frequencies_, command_frequency_, kEnableBackwardShift);
-  }
-  // For the simulation duration if won't overflow.
-  cumulated_phases_ += frequencies_ * dt;
+  // const size_t kPropagationInterval = (1. / group_velocity_) / kNumJoints /
+  // dt;
+  // if (steps_ % kPropagationInterval == 0) {
+  //   bool kEnableBackwardShift = 0;
+  //   ShiftArray(amplitudes_, command_amplitude_, kEnableBackwardShift);
+  //   ShiftArray(frequencies_, command_frequency_, kEnableBackwardShift);
+  // }
 
-  // Clear all the forces in the contact force
-  // container
-  for (auto &force : contact_force_list_) {
-    force.Set(0);
+  // For the simulation duration if won't overflow.
+  for (auto &motor_function : motor_functions_) {
+    motor_function->Step(dt);
   }
+
   ch_system_->GetContactContainer()->ReportAllContacts2(contact_reporter_);
 
   Eigen::VectorXd forces_media(3 * kNumSegs);
@@ -355,17 +275,17 @@ void Controller::Step(double dt) {
     // std::cout << i << ", " << robot_->rigid_bodies[i]->GetMass() << " : "
     //           << contact_force_list_[i] << std::endl;
     // get the rft_force
-    auto rft_force = robot_->rigid_bodies[i]->Get_accumulated_force();
-    accum_force += rft_force;
-    // fx
-    forces_contact(3 * i + 0) = contact_force_list_[i](0);
-    forces_media(3 * i + 0) = rft_force(0);
-    // fz
-    forces_contact(3 * i + 1) = contact_force_list_[i](2);
-    forces_media(3 * i + 1) = rft_force(2);
-    // Torque
-    forces_contact(3 * i + 2) = 0;
-    forces_media(3 * i + 2) = 0;
+    // auto rft_force = robot_->rigid_bodies[i]->Get_accumulated_force();
+    // accum_force += rft_force;
+    // // fx
+    // forces_contact(3 * i + 0) = contact_force_list_[i](0);
+    // forces_media(3 * i + 0) = rft_force(0);
+    // // fz
+    // forces_contact(3 * i + 1) = contact_force_list_[i](2);
+    // forces_media(3 * i + 1) = rft_force(2);
+    // // Torque
+    // forces_contact(3 * i + 2) = 0;
+    // forces_media(3 * i + 2) = 0;
     // std::cout << rft_force << std::endl;
   }
   // std::cout << accum_force << std::endl;
@@ -374,58 +294,29 @@ void Controller::Step(double dt) {
 
   auto torque_int =
       SolveChainInternalTorque(robot_->inertia, jacobian, forces_media);
-  torques_media_ = torque_int.block(1, 0, kNumJoints, 1);
-  // std::cout << amplitudes_.transpose() << std::endl;
-  // for (size_t i = 0; i < kNumJoints; ++i) {
-  //
-  //   auto rot_funct =
-  //       (ChFunction_Sine *)robot_->motors[i]->Get_rot_funct().get();
-  //
-  //   rot_funct->Set_amp(amplitudes_[i]);
-  // }
+  auto torques_media = torque_int.block(1, 0, kNumJoints, 1);
 }
 
 size_t Controller::GetNumMotors() { return robot_->motors.size(); }
 
-double Controller::GetMediaTorque(size_t index, double t) {
-  return torques_media_(index);
-}
-
-double Controller::GetContactTorque(size_t index, double t) {
-  return torques_contact_(index);
-}
-
-double Controller::GetAngle(size_t index, double t) {
-
-  double desired_angle = amplitudes_(index) * sin(cumulated_phases_(index));
-  return desired_angle;
-}
-
-double Controller::GetAngularSpeed(size_t index, double t) {
-  double desired_angular_speed =
-      amplitudes_(index) * frequencies_(index) * cos(cumulated_phases_(index));
-  return desired_angular_speed;
-}
-
-void Controller::EnablePIDMotorControl();
-{
-  motor_functions.resize(0);
+void Controller::EnablePIDMotorControl() {
+  motor_functions_.resize(0);
   auto &motors = robot_->motors;
   for (size_t i = 0; i < motors.size(); ++i) {
-    motor_functions.emplace_back(default_amplitude_, default_frequency_,
-                                 double(i * num_waves_) / motors.size() *
-                                     CH_C_2PI);
-    motors[i].Inialize(motor_functions[i], ChLinkEngine::ENG_MODE_TORQUE);
+    motor_functions_.emplace_back(
+        new ChFunctionMotor(default_amplitude_, default_frequency_,
+                            double(i * num_waves_) / motors.size() * CH_C_2PI));
+    motors[i]->Initialize(motor_functions_[i], ChLinkEngine::ENG_MODE_TORQUE);
   }
 }
 
 void Controller::EnablePosMotorControl() {
-  motor_functions.resize(0);
+  motor_functions_.resize(0);
   auto &motors = robot_->motors;
   for (size_t i = 0; i < motors.size(); ++i) {
-    motor_functions.emplace_back(default_amplitude_, default_frequency_,
-                                 double(i * num_waves_) / motors.size() *
-                                     CH_C_2PI);
-    motors[i].Inialize(motor_functions[i], ChLinkEngine::ENG_MODE_ROTATION);
+    motor_functions_.emplace_back(
+        new ChFunctionMotor(default_amplitude_, default_frequency_,
+                            double(i * num_waves_) / motors.size() * CH_C_2PI));
+    motors[i]->Initialize(motor_functions_[i], ChLinkEngine::ENG_MODE_ROTATION);
   }
 }

@@ -14,11 +14,6 @@
 using namespace chrono;
 
 namespace {
-// a set of global robotic params
-const bool kEnableVisual = true;
-const bool kEnableCollision = true;
-const double kFriction = 0.0;
-const double kDensity = 5000.0;
 
 RFTMesh MeshRFTSquare(double lx, double ly, bool is_double_sided) {
   const size_t kMaxNumPieces = 100;
@@ -67,6 +62,12 @@ void TransformRFTMesh(const ChFrame<> &frame, RFTMesh &mesh) {
 Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
   Robot i_robot;
   if (true) {
+    // a set of global robotic params
+    const bool kEnableVisual = true;
+    const bool kEnableCollision = true;
+    const double kFriction = 0.0;
+    const double kDensity = 5000.0;
+
     ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
         500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
     ground->SetBodyFixed(true);

@@ -37,10 +37,6 @@ public:
   void Step(double dt);
   // get the toruqe for joint i
   size_t GetNumMotors();
-  double GetMediaTorque(size_t i, double t);
-  double GetContactTorque(size_t i, double t);
-  double GetAngle(size_t i, double t);
-  double GetAngularSpeed(size_t i, double t);
 
   // The PID based positio control
   void EnablePIDMotorControl();
@@ -73,7 +69,7 @@ private:
 
   // Buffers for wave windows.
   std::list<WaveWindow> wave_windows_;
-  std::vector<chrono::ChFunctionMotor> motor_functions_;
+  std::vector<chrono::ChSharedPtr<chrono::ChFunctionMotor>> motor_functions_;
   // TODO
   std::queue<Json::Value> command_queue_;
   // TODO

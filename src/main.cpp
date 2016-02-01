@@ -119,6 +119,7 @@ int main(int argc, char *argv[]) {
 
   // Switch to controller
   Controller controller(&ch_system, &i_robot);
+  controller.EnablePosMotorControl();
 
   // Even receiver
   MyEventReceiver receiver(&ch_app, &controller);
