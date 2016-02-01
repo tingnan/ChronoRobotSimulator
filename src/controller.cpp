@@ -1,10 +1,10 @@
 #include <Eigen/Dense>
 
-#include "include/controller.h"
-#include "include/chfunction_controller.h"
-#include "include/robot.h"
-#include "include/vector_utility.h"
 #include "include/contact_reporter.h"
+#include "include/controller.h"
+#include "include/robot.h"
+#include "include/servo_motor.h"
+#include "include/vector_utility.h"
 
 namespace {
 
@@ -20,42 +20,42 @@ double GetBodyXYPlaneAngle(chrono::ChBody *body_ptr) {
   return angle;
 }
 
-Eigen::MatrixXd ChainJacobianDx(const std::vector<double> &body_length_list,
+Eigen::MatrixXd ChainJacobianDx(const std::vector<double> &link_lengths,
                                 const Eigen::VectorXd &sin_thetas) {
-  const size_t kNumSegs = body_length_list.size();
+  const size_t kNumSegs = link_lengths.size();
   Eigen::MatrixXd jacobian_dx(kNumSegs, kNumSegs + 2);
   jacobian_dx.setZero();
   for (size_t i = 0; i < kNumSegs; ++i) {
-    double l = body_length_list[i];
+    double l = link_lengths[i];
     jacobian_dx(i, i) = -0.5 * l * sin_thetas(i);
     jacobian_dx(i, kNumSegs) = 1;
     for (int j = i - 1; j >= 0; --j) {
-      double l = body_length_list[j];
+      double l = link_lengths[j];
       jacobian_dx(i, j) = jacobian_dx(i, j + 1) - l * sin_thetas(j);
     }
   }
   return jacobian_dx;
 }
 
-Eigen::MatrixXd ChainJacobianDy(const std::vector<double> &body_length_list,
+Eigen::MatrixXd ChainJacobianDy(const std::vector<double> &link_lengths,
                                 const Eigen::VectorXd &cos_thetas) {
-  const size_t kNumSegs = body_length_list.size();
+  const size_t kNumSegs = link_lengths.size();
   Eigen::MatrixXd jacobian_dy(kNumSegs, kNumSegs + 2);
   jacobian_dy.setZero();
   for (size_t i = 0; i < kNumSegs; ++i) {
-    double l = body_length_list[i];
+    double l = link_lengths[i];
     jacobian_dy(i, i) = 0.5 * l * cos_thetas(i);
     jacobian_dy(i, kNumSegs + 1) = 1;
     for (int j = i - 1; j >= 0; --j) {
-      double l = body_length_list[j];
+      double l = link_lengths[j];
       jacobian_dy(i, j) = jacobian_dy(i, j + 1) + l * cos_thetas(j);
     }
   }
   return jacobian_dy;
 }
 
-Eigen::MatrixXd ChainJacobianDw(const std::vector<double> &body_length_list) {
-  const size_t kNumSegs = body_length_list.size();
+Eigen::MatrixXd ChainJacobianDw(const std::vector<double> &link_lengths) {
+  const size_t kNumSegs = link_lengths.size();
   Eigen::MatrixXd jacobian_dw(kNumSegs, kNumSegs + 2);
   jacobian_dw.setZero();
   for (size_t i = 0; i < kNumSegs; ++i) {
@@ -66,14 +66,14 @@ Eigen::MatrixXd ChainJacobianDw(const std::vector<double> &body_length_list) {
   return jacobian_dw;
 }
 
-Eigen::MatrixXd
-ComputeChainJacobianTailFrame(const std::vector<chrono::ChBody *> &body_list,
-                              const std::vector<double> &body_length_list) {
-  const size_t kNumSegs = body_list.size();
+Eigen::MatrixXd ComputeChainJacobianTailFrame(
+    const std::vector<chrono::ChSharedPtr<chrono::ChBody>> &rigid_bodies,
+    const std::vector<double> &link_lengths) {
+  const size_t kNumSegs = rigid_bodies.size();
   Eigen::VectorXd thetas(kNumSegs);
   thetas.setZero();
   for (size_t i = 0; i < kNumSegs; ++i) {
-    thetas(i) = GetBodyXYPlaneAngle(body_list[i]);
+    thetas(i) = GetBodyXYPlaneAngle(rigid_bodies[i].get());
   }
 
   Eigen::VectorXd sin_thetas(kNumSegs);
@@ -82,9 +82,9 @@ ComputeChainJacobianTailFrame(const std::vector<chrono::ChBody *> &body_list,
     sin_thetas(j) = sin(thetas(j));
     cos_thetas(j) = cos(thetas(j));
   }
-  auto jacobian_dx = ChainJacobianDx(body_length_list, sin_thetas);
-  auto jacobian_dy = ChainJacobianDy(body_length_list, cos_thetas);
-  auto jacobian_dw = ChainJacobianDw(body_length_list);
+  auto jacobian_dx = ChainJacobianDx(link_lengths, sin_thetas);
+  auto jacobian_dy = ChainJacobianDy(link_lengths, cos_thetas);
+  auto jacobian_dw = ChainJacobianDw(link_lengths);
 
   Eigen::MatrixXd jacobian(3 * kNumSegs, kNumSegs + 2);
   // Fill the elements (partial x_i, y_i, theta_i / partial q_j)
@@ -132,14 +132,14 @@ Eigen::MatrixXd ChainJacobianCoMTransform(const Eigen::MatrixXd &jacobian_dx,
   return jj;
 }
 
-Eigen::MatrixXd
-ComputeChainJacobianCoMFrame(const std::vector<chrono::ChBody *> &body_list,
-                             const std::vector<double> &body_length_list) {
-  const size_t kNumSegs = body_list.size();
+Eigen::MatrixXd ComputeChainJacobianCoMFrame(
+    const std::vector<chrono::ChSharedPtr<chrono::ChBody>> &rigid_bodies,
+    const std::vector<double> &link_lengths) {
+  const size_t kNumSegs = rigid_bodies.size();
   Eigen::VectorXd thetas(kNumSegs);
   thetas.setZero();
   for (size_t i = 0; i < kNumSegs; ++i) {
-    thetas(i) = GetBodyXYPlaneAngle(body_list[i]);
+    thetas(i) = GetBodyXYPlaneAngle(rigid_bodies[i].get());
   }
 
   Eigen::VectorXd sin_thetas(kNumSegs);
@@ -148,9 +148,9 @@ ComputeChainJacobianCoMFrame(const std::vector<chrono::ChBody *> &body_list,
     sin_thetas(j) = sin(thetas(j));
     cos_thetas(j) = cos(thetas(j));
   }
-  auto jacobian_dx = ChainJacobianDx(body_length_list, sin_thetas);
-  auto jacobian_dy = ChainJacobianDy(body_length_list, cos_thetas);
-  auto jacobian_dw = ChainJacobianDw(body_length_list);
+  auto jacobian_dx = ChainJacobianDx(link_lengths, sin_thetas);
+  auto jacobian_dy = ChainJacobianDy(link_lengths, cos_thetas);
+  auto jacobian_dw = ChainJacobianDw(link_lengths);
 
   auto jj = ChainJacobianCoMTransform(jacobian_dx, jacobian_dy);
   jacobian_dx = jacobian_dx * jj;
@@ -218,15 +218,8 @@ void ShiftArray(Eigen::VectorXd &array, double default_value, bool forward) {
 using namespace chrono;
 
 Controller::Controller(chrono::ChSystem *ch_system, Robot *i_robot)
-    : ch_system_(ch_system), robot_(i_robot),
-      contact_force_list_(robot_->body_list.size()),
-      amplitudes_(robot_->engine_list.size()),
-      frequencies_(robot_->engine_list.size()),
-      cumulated_phases_(robot_->engine_list.size()) {
-  contact_reporter_ = new ContactExtractor(&contact_force_list_);
-  amplitudes_.setZero();
-  frequencies_.setZero();
-  cumulated_phases_.setZero();
+    : ch_system_(ch_system), robot_(i_robot) {
+  contact_reporter_ = new ContactExtractor();
 }
 
 void Controller::SetDefaultParams(const Json::Value &command) {
@@ -332,8 +325,8 @@ void Controller::Step(double dt) {
   // Will not overflow.
   steps_++;
 
-  const size_t kNumSegs = robot_->body_list.size();
-  const size_t kNumJoints = robot_->engine_list.size();
+  const size_t kNumSegs = robot_->rigid_bodies.size();
+  const size_t kNumJoints = robot_->motors.size();
 
   // Now propagate the amplitude from head to tail
   // Number of steps executed before a propagation happens
@@ -359,25 +352,25 @@ void Controller::Step(double dt) {
   ChVector<> desired_direction = ChVector<>(1.0, 0.0, 0.0);
   ChVector<> accum_force;
   for (size_t i = 0; i < kNumSegs; ++i) {
-    // std::cout << i << ", " << robot_->body_list[i]->GetMass() << " : "
+    // std::cout << i << ", " << robot_->rigid_bodies[i]->GetMass() << " : "
     //           << contact_force_list_[i] << std::endl;
     // get the rft_force
-    auto rft_force = robot_->body_list[i]->Get_accumulated_force();
+    auto rft_force = robot_->rigid_bodies[i]->Get_accumulated_force();
     accum_force += rft_force;
     // fx
-    forces_contact(3 *i + 0) = contact_force_list_[i](0);
-    forces_media(3 *i + 0) = rft_force(0);
+    forces_contact(3 * i + 0) = contact_force_list_[i](0);
+    forces_media(3 * i + 0) = rft_force(0);
     // fz
-    forces_contact(3 *i + 1) = contact_force_list_[i](2);
-    forces_media(3 *i + 1) = rft_force(2);
+    forces_contact(3 * i + 1) = contact_force_list_[i](2);
+    forces_media(3 * i + 1) = rft_force(2);
     // Torque
-    forces_contact(3 *i + 2) = 0;
-    forces_media(3 *i + 2) = 0;
+    forces_contact(3 * i + 2) = 0;
+    forces_media(3 * i + 2) = 0;
     // std::cout << rft_force << std::endl;
   }
   // std::cout << accum_force << std::endl;
   auto jacobian =
-      ComputeChainJacobianCoMFrame(robot_->body_list, robot_->body_length_list);
+      ComputeChainJacobianCoMFrame(robot_->rigid_bodies, robot_->link_lengths);
 
   auto torque_int =
       SolveChainInternalTorque(robot_->inertia, jacobian, forces_media);
@@ -386,14 +379,13 @@ void Controller::Step(double dt) {
   // for (size_t i = 0; i < kNumJoints; ++i) {
   //
   //   auto rot_funct =
-  //       (ChFunction_Sine *)robot_->engine_list[i]->Get_rot_funct().get();
+  //       (ChFunction_Sine *)robot_->motors[i]->Get_rot_funct().get();
   //
   //   rot_funct->Set_amp(amplitudes_[i]);
   // }
 }
 
-size_t Controller::GetNumEngines() { return robot_->engine_list.size(); }
-ChLinkEngine *Controller::GetEngine(size_t i) { return robot_->engine_list[i]; }
+size_t Controller::GetNumMotors() { return robot_->motors.size(); }
 
 double Controller::GetMediaTorque(size_t index, double t) {
   return torques_media_(index);
@@ -415,22 +407,25 @@ double Controller::GetAngularSpeed(size_t index, double t) {
   return desired_angular_speed;
 }
 
-void Controller::UsePositionControl() {
-  auto &engine_list = robot_->engine_list;
-  for (size_t i = 0; i < engine_list.size(); ++i) {
-    ChSharedPtr<ChFunction_Sine> engine_funct(new ChFunction_Sine(
-        double(i * num_waves_) / engine_list.size() * CH_C_2PI,
-        default_frequency_ / CH_C_2PI, default_amplitude_));
-    engine_list[i]->Set_eng_mode(ChLinkEngine::ENG_MODE_ROTATION);
-    engine_list[i]->Set_rot_funct(engine_funct);
+void Controller::EnablePIDMotorControl();
+{
+  motor_functions.resize(0);
+  auto &motors = robot_->motors;
+  for (size_t i = 0; i < motors.size(); ++i) {
+    motor_functions.emplace_back(default_amplitude_, default_frequency_,
+                                 double(i * num_waves_) / motors.size() *
+                                     CH_C_2PI);
+    motors[i].Inialize(motor_functions[i], ChLinkEngine::ENG_MODE_TORQUE);
   }
 }
 
-void Controller::UseForceControl() {
-  for (size_t i = 0; i < GetNumEngines(); ++i) {
-    ChSharedPtr<ChFunctionController> engine_funct(
-        new ChFunctionController(i, this));
-    GetEngine(i)->Set_eng_mode(ChLinkEngine::ENG_MODE_TORQUE);
-    GetEngine(i)->Set_tor_funct(engine_funct);
+void Controller::EnablePosMotorControl() {
+  motor_functions.resize(0);
+  auto &motors = robot_->motors;
+  for (size_t i = 0; i < motors.size(); ++i) {
+    motor_functions.emplace_back(default_amplitude_, default_frequency_,
+                                 double(i * num_waves_) / motors.size() *
+                                     CH_C_2PI);
+    motors[i].Inialize(motor_functions[i], ChLinkEngine::ENG_MODE_ROTATION);
   }
 }

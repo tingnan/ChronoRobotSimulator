@@ -3,6 +3,8 @@
 
 #include <physics/ChContactContainerBase.h>
 
+#include "include/vector_utility.h"
+
 namespace chrono {
 
 class ContactSerializer : public ChReportContactCallback2 {
@@ -30,8 +32,6 @@ public:
 
 class ContactExtractor : public ChReportContactCallback2 {
 public:
-  ContactExtractor(std::vector<ChVector<> > *contact_force_list)
-      : contact_force_list_(contact_force_list) {}
   virtual bool ReportContactCallback2(const chrono::ChVector<> &point_a,
                                       const chrono::ChVector<> &point_b,
                                       const chrono::ChMatrix33<> &plane_coord,
@@ -51,19 +51,19 @@ public:
     auto id_a = model_a->GetPhysicsItem()->GetIdentifier();
     auto id_b = model_b->GetPhysicsItem()->GetIdentifier();
 
-    if (id_a >= 0 && id_a < contact_force_list_->size()) {
-      (*contact_force_list_)[id_a] -= contact_force_normal;
+    if (id_a >= 0 && id_a < contact_forces_.size()) {
+      contact_forces_[id_a] -= contact_force_normal;
     }
 
-    if (id_b >= 0 && id_b < contact_force_list_->size()) {
-      (*contact_force_list_)[id_b] = contact_force_normal;
+    if (id_b >= 0 && id_b < contact_forces_.size()) {
+      contact_forces_[id_b] = contact_force_normal;
     }
 
     return true; // to continue scanning contacts
   }
 
 private:
-  std::vector<ChVector<> > *contact_force_list_;
+  std::vector<ChVector<>> contact_forces_;
 };
 } // namespace chrono
 

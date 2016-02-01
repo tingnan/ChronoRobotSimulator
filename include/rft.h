@@ -1,9 +1,9 @@
 #ifndef INCLUDE_RFT_H_
 #define INCLUDE_RFT_H_
 
-#include <vector>
-
 #include "include/vector_utility.h"
+#include <physics/ChBody.h>
+#include <vector>
 
 namespace chrono {
 class ChSystem;
@@ -16,9 +16,9 @@ class ChIrrApp;
 
 struct RFTMesh {
   // The position of each face in CoG frame.
-  std::vector<chrono::ChVector<> > positions;
+  std::vector<chrono::ChVector<>> positions;
   // The orientation of each face in CoG frame.
-  std::vector<chrono::ChVector<> > normals;
+  std::vector<chrono::ChVector<>> normals;
   // The area of each face.
   std::vector<double> areas;
   // Whether the faces are double sided.
@@ -27,15 +27,15 @@ struct RFTMesh {
 
 struct RFTBody {
   RFTBody(chrono::ChBody *p) : chbody(p) {}
-  std::vector<chrono::ChVector<> > GetTransformedNormalList();
-  std::vector<chrono::ChVector<> > GetTransformedPositionList();
-  std::vector<chrono::ChVector<> > GetTransformedVelocityList();
+  std::vector<chrono::ChVector<>> GetTransformedNormalList();
+  std::vector<chrono::ChVector<>> GetTransformedPositionList();
+  std::vector<chrono::ChVector<>> GetTransformedVelocityList();
   // The Chrono body holder.
   chrono::ChBody *chbody;
   // The mesh.
   RFTMesh mesh;
   // Force on each face in the mesh.
-  std::vector<chrono::ChVector<> > forces;
+  std::vector<chrono::ChVector<>> forces;
 };
 
 class RFTSystem {

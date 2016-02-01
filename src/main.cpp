@@ -1,12 +1,13 @@
 #include <chrono_irrlicht/ChIrrApp.h>
 #include <motion_functions/ChFunction_Sine.h>
 
-#include "json/json.h"
-#include "include/rft.h"
-#include "include/gui.h"
-#include "include/robot.h"
-#include "include/controller.h"
 #include "include/chrono_io.h"
+#include "include/controller.h"
+#include "include/gui.h"
+#include "include/rft.h"
+#include "include/robot.h"
+#include "include/world.h"
+#include "json/json.h"
 
 namespace {
 std::string Stringify(const char *path) {
@@ -68,10 +69,10 @@ void ApplyRFTForce(std::vector<RFTBody> &rft_body_list, RFTSystem &rsystem) {
 }
 
 std::vector<RFTBody> BuildRFTBody(Robot *robot) {
-  auto &body_list = robot->body_list;
-  std::vector<RFTBody> rft_body_list;
-  for (size_t i = 0; i < body_list.size(); ++i) {
-    rft_body_list.emplace_back(body_list[i]);
+  auto &rigid_bodies = robot->rigid_bodies;
+  std::vector<RFTBody> rft_bodies;
+  for (auto &rigid_body : rigid_bodies) {
+    rft_bodies.emplace_back(rigid_body.get());
   }
 }
 
@@ -154,9 +155,6 @@ int main(int argc, char *argv[]) {
   controller.SetDefaultParams(command_params);
   controller.PushCommandToQueue(command_params);
 
-  controller.UseForceControl();
-  // controller.UsePositionControl();
-
   ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
 
@@ -177,7 +175,7 @@ int main(int argc, char *argv[]) {
       ch_app.GetVideoDriver()->beginScene(true, true,
                                           video::SColor(255, 140, 161, 192));
       ch_app.DrawAll();
-      ApplyRFTForce(i_robot.rft_body_list, rsystem);
+      ApplyRFTForce(i_robot.rft_bodies, rsystem);
       // draw a grid to help visualizattion
       ChIrrTools::drawGrid(
           ch_app.GetVideoDriver(), 5, 5, 100, 100,
@@ -189,16 +187,16 @@ int main(int argc, char *argv[]) {
         std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
                   << std::endl;
         if (ch_system.GetChTime() > 20) {
-          SerializeBodies(i_robot.body_list, mov_file);
-          SerializeEngines(i_robot.engine_list, jnt_file);
-          SerializeContacts(i_robot.body_list, cot_file);
+          // SerializeBodies(i_robot.body_list, mov_file);
+          // SerializeEngines(i_robot.engine_list, jnt_file);
+          // SerializeContacts(i_robot.body_list, cot_file);
         }
       }
       count = 0;
       continue;
     }
 
-    ApplyRFTForce(i_robot.rft_body_list, rsystem);
+    ApplyRFTForce(i_robot.rft_bodies, rsystem);
     if (!ch_app.GetPaused())
       ++count;
   }

@@ -1,10 +1,10 @@
 #ifndef INCLUDE_CHFUNCTION_CONTROLLER_H_
 #define INCLUDE_CHFUNCTION_CONTROLLER_H_
 
-#include <cmath>
 #include <algorithm>
-#include <physics/ChLinkEngine.h>
+#include <cmath>
 #include <motion_functions/ChFunction_Base.h>
+#include <physics/ChLinkEngine.h>
 
 class Controller;
 
@@ -35,16 +35,17 @@ protected:
   ChSharedPtr<ChLinkEngine> engine_;
 };
 
-class ChServoMotor {
+class ChServoMotor : public ChShared {
 public:
-  ChServoMotor(ChSharedPtr<ChLinkEngine> engine,
-               ChSharedPtr<ChFunction> motor_funct,
-               ChLinkEngine::eCh_eng_mode mode_flag);
+  explicit ChServoMotor(ChSharedPtr<ChLinkEngine> engine) : engine_(engine) {}
+  void Initialize(ChSharedPtr<ChFunction> motor_funct,
+                  ChLinkEngine::eCh_eng_mode mode_flag);
   void Serialize();
 
 private:
-  // The ChEngine underying
+  // The underlying ChLinkEngine used.
   ChSharedPtr<ChLinkEngine> engine_;
+  ChLinkEngine::eCh_eng_mode motor_mode_;
 };
 
 } // namespace chrono

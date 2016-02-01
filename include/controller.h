@@ -1,18 +1,34 @@
 #ifndef INCLUDE_CONTROLLER_H_
 #define INCLUDE_CONTROLLER_H_
 
+#include <list>
 #include <queue>
 #include <vector>
 
-#include <json/json.h>
 #include <Eigen/Core>
-#include <motion_functions/ChFunction_Base.h>
-#include <physics/ChSystem.h>
+#include <json/json.h>
 #include <physics/ChLinkEngine.h>
+#include <physics/ChSystem.h>
+
+#include "include/motor_function.h"
 
 namespace chrono {
-class ChReportContactCallback2;
+class ContactExtractor;
 }
+
+struct WaveWindow {
+  // The starting joint index of the window, allowing negative value.
+  int window_start;
+  // The span of the window, which is always assumed to be a half wave length.
+  size_t window_width;
+  // The window wave parameters
+  double amplitude;
+  double amp_modifier;
+  // The temporal frequency is not a independent parameter. Once the wave group
+  // speed is determined the temporal frequency is extracted from the width of
+  // the window.
+  double frequency;
+};
 
 class Controller {
 public:
@@ -20,15 +36,16 @@ public:
   // Step the controller
   void Step(double dt);
   // get the toruqe for joint i
-  size_t GetNumEngines();
-  chrono::ChLinkEngine *GetEngine(size_t i);
+  size_t GetNumMotors();
   double GetMediaTorque(size_t i, double t);
   double GetContactTorque(size_t i, double t);
   double GetAngle(size_t i, double t);
   double GetAngularSpeed(size_t i, double t);
 
-  void UseForceControl();
-  void UsePositionControl();
+  // The PID based positio control
+  void EnablePIDMotorControl();
+  // The "perfect" control
+  void EnablePosMotorControl();
   // Change the undultation amplitude of the snake
   void SetDefaultParams(const Json::Value &command);
   void PushCommandToQueue(const Json::Value &command);
@@ -36,30 +53,34 @@ public:
 private:
   // Process the commands in the queue, one at a time
   void ProcessCommandQueue(double dt);
+  // Propagate window
+  void PropagateWindows();
+  // Core components
   chrono::ChSystem *ch_system_;
   class Robot *robot_;
+
   // Contact force on each of the robot segment.
-  chrono::ChReportContactCallback2 *contact_reporter_;
-  std::vector<chrono::ChVector<> > contact_force_list_;
-  // the torques at joints, computed from contact forces.
-  Eigen::VectorXd torques_media_;
-  Eigen::VectorXd torques_contact_;
+  chrono::ContactExtractor *contact_reporter_;
+
   // Parameters for the position control.
   double num_waves_ = 1.0;
   double default_frequency_ = 0.10 * chrono::CH_C_2PI;
   double default_amplitude_ = 0.35;
+  double group_velocity_ = default_frequency_ / 2.0 / chrono::CH_C_2PI;
   // Parameters for advanced control.
   double command_frequency_ = default_frequency_;
   double command_amplitude_ = default_amplitude_;
-  double group_velocity_ = default_frequency_ / 2.0 / chrono::CH_C_2PI;
-  Eigen::VectorXd amplitudes_;
-  Eigen::VectorXd frequencies_;
-  Eigen::VectorXd cumulated_phases_;
+
+  // Buffers for wave windows.
+  std::list<WaveWindow> wave_windows_;
+  std::vector<chrono::ChFunctionMotor> motor_functions_;
+  // TODO
   std::queue<Json::Value> command_queue_;
+  // TODO
   int command_count_down_ = 0;
-  // reference counting
+  // step counting
   size_t steps_ = 0;
-  // command_queue_counting;
+  // current command counting; TODO
   size_t command_count_ = 0;
 };
 #endif // INCLUDE_CHFUNCTION_CONTROLLER_H_

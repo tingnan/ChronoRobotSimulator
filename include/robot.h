@@ -2,19 +2,17 @@
 #define INCLUDE_ROBOT_H_
 
 #include <vector>
+
+#include "json/json.h"
 #include <Eigen/Core>
 #include <core/ChMath.h>
+#include <physics/ChBody.h>
+#include <physics/ChLinkEngine.h>
+#include <physics/ChSystem.h>
+
+#include "include/servo_motor.h"
 
 class RFTBody;
-
-namespace irr {
-class ChIrrApp;
-}
-
-namespace chrono {
-class ChBody;
-class ChLinkEngine;
-}
 
 namespace Json {
 class Value;
@@ -22,14 +20,16 @@ class Value;
 
 // The Snake robot
 struct Robot {
-  std::vector<chrono::ChBody *> body_list;
-  std::vector<double> body_length_list;
-  std::vector<chrono::ChLinkEngine *> engine_list;
-  std::vector<RFTBody> rft_body_list;
+  // Core components: rigid bodies and motors
+  std::vector<chrono::ChSharedPtr<chrono::ChBody>> rigid_bodies;
+  std::vector<chrono::ChSharedPtr<chrono::ChServoMotor>> motors;
+  // To be used with RFT module
+  std::vector<RFTBody> rft_bodies;
+  // Cached value, to be used by the controller.
+  std::vector<double> link_lengths;
   Eigen::MatrixXd inertia;
 };
 
-void BuildWorld(chrono::ChSystem *ch_system, const Json::Value &params);
 Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params);
 
 #endif // INCLUDE_ROBOT_H_
