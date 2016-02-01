@@ -15,9 +15,11 @@ public:
     return new ChFunctionMotor(amplitude_, frequency_, cumulated_phase_);
   }
   int Get_Type() { return 8607; }
-  double Step(double dt) { cumulated_phase_ += frequency_ * dt; }
-  double Get_y(double t) { amplitude_ *sin(cumulated_phase_); }
-  double Get_y_dx(double t) { amplitude_ *frequency_ *cos(cumulated_phase_); }
+  void Step(double dt) { cumulated_phase_ += frequency_ * dt; }
+  double Get_y(double t) { return amplitude_ * sin(cumulated_phase_); }
+  double Get_y_dx(double t) {
+    return amplitude_ * frequency_ * cos(cumulated_phase_);
+  }
 
 protected:
   double amplitude_ = 0;

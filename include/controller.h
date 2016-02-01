@@ -51,6 +51,11 @@ private:
   void ProcessCommandQueue(double dt);
   // Propagate window
   void PropagateWindows();
+
+  // The torques at each joint contributed from the contact force and/or media
+  // resistance.
+  Eigen::VectorXd ComputeInternalTorque();
+
   // Core components
   chrono::ChSystem *ch_system_;
   class Robot *robot_;
@@ -69,7 +74,9 @@ private:
 
   // Buffers for wave windows.
   std::list<WaveWindow> wave_windows_;
+  // motor functions to be adjusted based on the window it belongs to
   std::vector<chrono::ChSharedPtr<chrono::ChFunctionMotor>> motor_functions_;
+
   // TODO
   std::queue<Json::Value> command_queue_;
   // TODO

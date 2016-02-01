@@ -119,7 +119,6 @@ int main(int argc, char *argv[]) {
 
   // Switch to controller
   Controller controller(&ch_system, &i_robot);
-  controller.EnablePosMotorControl();
 
   // Even receiver
   MyEventReceiver receiver(&ch_app, &controller);
@@ -155,6 +154,7 @@ int main(int argc, char *argv[]) {
   command_params["amplitude"] = atof(argv[3]);
   controller.SetDefaultParams(command_params);
   controller.PushCommandToQueue(command_params);
+  controller.EnablePosMotorControl();
 
   ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);

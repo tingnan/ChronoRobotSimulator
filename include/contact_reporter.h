@@ -32,6 +32,7 @@ public:
 
 class ContactExtractor : public ChReportContactCallback2 {
 public:
+  explicit ContactExtractor(size_t num_bodies) : contact_forces_(num_bodies) {}
   virtual bool ReportContactCallback2(const chrono::ChVector<> &point_a,
                                       const chrono::ChVector<> &point_b,
                                       const chrono::ChMatrix33<> &plane_coord,
@@ -61,6 +62,13 @@ public:
 
     return true; // to continue scanning contacts
   }
+
+  void Reset() {
+    for (auto &force : contact_forces_) {
+      force.SetNull();
+    }
+  }
+  std::vector<ChVector<>> GetContactForces() { return contact_forces_; }
 
 private:
   std::vector<ChVector<>> contact_forces_;

@@ -219,7 +219,7 @@ using namespace chrono;
 
 Controller::Controller(chrono::ChSystem *ch_system, Robot *i_robot)
     : ch_system_(ch_system), robot_(i_robot) {
-  contact_reporter_ = new ContactExtractor();
+  contact_reporter_ = new ContactExtractor(robot_->rigid_bodies.size());
 }
 
 void Controller::SetDefaultParams(const Json::Value &command) {
@@ -241,13 +241,44 @@ void Controller::ProcessCommandQueue(double dt) {
   // command_amplitude_ = command.get("amplitude", 0.5).asDouble();
 }
 
+Eigen::VectorXd Controller::ComputeInternalTorque() {
+  const size_t kNumSegs = robot_->rigid_bodies.size();
+  const size_t kNJacDim = 3;
+  Eigen::VectorXd forces_contact(kNJacDim * kNumSegs);
+  contact_reporter_->Reset();
+  ch_system_->GetContactContainer()->ReportAllContacts2(contact_reporter_);
+  auto reported_forces = contact_reporter_->GetContactForces();
+  const size_t kXIdx = 0;
+  const size_t kZIdx = 2;
+  for (size_t i = 0; i < kNumSegs; ++i) {
+    forces_contact(kNJacDim * i + 0) = reported_forces[i](kXIdx);
+    forces_contact(kNJacDim * i + 1) = reported_forces[i](kZIdx);
+    forces_contact(kNJacDim * i + 2) = 0;
+  }
+  // optionally, compute the forces from the media
+  Eigen::VectorXd forces_media(kNJacDim * kNumSegs);
+  for (size_t i = 0; i < kNumSegs; ++i) {
+    auto rft_force = robot_->rigid_bodies[i]->Get_accumulated_force();
+    forces_media(kNJacDim * i + 0) = rft_force(kXIdx);
+    forces_media(kNJacDim * i + 1) = rft_force(kZIdx);
+    forces_media(kNJacDim * i + 2) = 0;
+  }
+  auto forces = 0.0 * forces_media + forces_contact;
+
+  auto jacobian =
+      ComputeChainJacobianCoMFrame(robot_->rigid_bodies, robot_->link_lengths);
+  auto torque = SolveChainInternalTorque(robot_->inertia, jacobian, forces);
+  const size_t kNumJoints = robot_->motors.size();
+  // subblock corresponding to each joint
+  auto torque_int = torque.block(1, 0, kNumJoints, 1);
+  // std::cout << torque_int.transpose() << std::endl;
+  return torque_int;
+}
+
 void Controller::Step(double dt) {
   ProcessCommandQueue(dt);
   // Will not overflow.
   steps_++;
-
-  const size_t kNumSegs = robot_->rigid_bodies.size();
-  const size_t kNumJoints = robot_->motors.size();
 
   // Now propagate the amplitude from head to tail
   // Number of steps executed before a propagation happens
@@ -264,37 +295,7 @@ void Controller::Step(double dt) {
     motor_function->Step(dt);
   }
 
-  ch_system_->GetContactContainer()->ReportAllContacts2(contact_reporter_);
-
-  Eigen::VectorXd forces_media(3 * kNumSegs);
-  Eigen::VectorXd forces_contact(3 * kNumSegs);
-  Eigen::VectorXd contact_weight(kNumSegs);
-  ChVector<> desired_direction = ChVector<>(1.0, 0.0, 0.0);
-  ChVector<> accum_force;
-  for (size_t i = 0; i < kNumSegs; ++i) {
-    // std::cout << i << ", " << robot_->rigid_bodies[i]->GetMass() << " : "
-    //           << contact_force_list_[i] << std::endl;
-    // get the rft_force
-    // auto rft_force = robot_->rigid_bodies[i]->Get_accumulated_force();
-    // accum_force += rft_force;
-    // // fx
-    // forces_contact(3 * i + 0) = contact_force_list_[i](0);
-    // forces_media(3 * i + 0) = rft_force(0);
-    // // fz
-    // forces_contact(3 * i + 1) = contact_force_list_[i](2);
-    // forces_media(3 * i + 1) = rft_force(2);
-    // // Torque
-    // forces_contact(3 * i + 2) = 0;
-    // forces_media(3 * i + 2) = 0;
-    // std::cout << rft_force << std::endl;
-  }
-  // std::cout << accum_force << std::endl;
-  auto jacobian =
-      ComputeChainJacobianCoMFrame(robot_->rigid_bodies, robot_->link_lengths);
-
-  auto torque_int =
-      SolveChainInternalTorque(robot_->inertia, jacobian, forces_media);
-  auto torques_media = torque_int.block(1, 0, kNumJoints, 1);
+  auto torque = ComputeInternalTorque();
 }
 
 size_t Controller::GetNumMotors() { return robot_->motors.size(); }
