@@ -220,15 +220,13 @@ using namespace chrono;
 Controller::Controller(chrono::ChSystem *ch_system, Robot *i_robot)
     : ch_system_(ch_system), robot_(i_robot) {
   contact_reporter_ = new ContactExtractor(robot_->rigid_bodies.size());
+  InitializeWindows();
 }
 
 void Controller::SetDefaultParams(const Json::Value &command) {
   num_waves_ = 0.5 / command.get("duration", 0.25).asDouble();
   default_amplitude_ = command.get("amplitude", 0.5).asDouble();
-}
-
-void Controller::PushCommandToQueue(const Json::Value &command) {
-  command_queue_.push(command);
+  InitializeWindows();
 }
 
 void Controller::ProcessCommandQueue(double dt) {
@@ -275,27 +273,115 @@ Eigen::VectorXd Controller::ComputeInternalTorque() {
   return torque_int;
 }
 
+WaveWindow Controller::GenerateDefaultWindow() {
+  WaveWindow default_window;
+  default_window.amp_modifier = 1;
+  default_window.amplitude = default_amplitude_;
+  default_window.frequency = default_frequency_;
+  // Start at head
+  const size_t kNumJoints = robot_->motors.size();
+  default_window.window_start = kNumJoints - 1;
+  default_window.window_width =
+      std::max(ceil(kNumJoints / num_waves_ / 2), 1.0);
+  return default_window;
+}
+
+void Controller::InitializeWindows() {
+  // Initialize all wave windows using the default params
+  wave_windows_.resize(0);
+  wave_windows_.emplace_front(GenerateDefaultWindow());
+  auto last_window = wave_windows_.begin();
+  while (last_window->window_start >= 0) {
+    wave_windows_.emplace_front(GenerateDefaultWindow());
+    wave_windows_.front().window_start =
+        last_window->window_start - wave_windows_.front().window_width;
+    last_window = wave_windows_.begin();
+  }
+}
+
+void PrintAllWindows(const std::list<WaveWindow> &windows) {
+  for (auto &window : windows) {
+    std::cout << window.window_start << ":"
+              << window.window_start + window.window_width - 1 << ",";
+  }
+  std::cout << std::endl;
+}
+
+void Controller::PropagateWindows(double dt) {
+  // The function move windows backwards
+  const size_t kNumJoints = robot_->motors.size();
+  const size_t kPropagationInterval = (1. / group_velocity_) / kNumJoints / dt;
+  if (steps_ % kPropagationInterval == 0) {
+    // We need at least 1 window
+    assert(wave_windows_.size() > 0);
+    // iterate through windows and shift the index
+    for (auto &window : wave_windows_) {
+      window.window_start--;
+    }
+    // Check the first window in the list for coverage. If a window moves out of
+    // the snake body (s + w - 1 < 0), we recycle it
+    auto &front_window = wave_windows_.front();
+    if (front_window.window_start + int(front_window.window_width) - 1 < 0) {
+      // past_windows_.emplace_back(front_window);
+      wave_windows_.pop_front();
+    }
+    // Now check for coverage: is it necessary to append another window to the
+    // back of the list? Notice that the list may have been changed!
+    if (wave_windows_.size() == 0) {
+      // This happens when there is only 1 joint along the body
+      wave_windows_.emplace_back(GenerateDefaultWindow());
+    }
+    // back() function is undefined if the list is empty
+    if (wave_windows_.back().window_start + wave_windows_.back().window_width <
+        kNumJoints) {
+      wave_windows_.emplace_back(GenerateDefaultWindow());
+    }
+    // PrintAllWindows(wave_windows_);
+  }
+}
+
+void Controller::UpdateWindowParams(double dt) {
+  // Compute the contact induced torques at each joint
+  auto torque_int = ComputeInternalTorque();
+  const size_t kNumJoints = robot_->motors.size();
+  for (auto &window : wave_windows_) {
+    // Compute the range of motors the window contains
+    int beg = std::max(window.window_start, 0);
+    int end =
+        std::min(window.window_start + window.window_width, int(kNumJoints));
+  }
+}
+
+void Controller::ApplyWindowParams() {
+  const size_t kNumJoints = robot_->motors.size();
+  for (auto &window : wave_windows_) {
+    // Compute the range of motors the window contains
+    int beg = std::max(window.window_start, 0);
+    int end =
+        std::min(window.window_start + window.window_width, int(kNumJoints));
+    for (size_t i = beg; i < end; ++i) {
+      // Apply the window params to the joint motor functions.
+      motor_functions_[i]->SetAmplitude(window.amplitude * window.amp_modifier);
+      motor_functions_[i]->SetFrequency(window.frequency);
+    }
+  }
+}
+
 void Controller::Step(double dt) {
-  ProcessCommandQueue(dt);
+  // ProcessCommandQueue(dt);
   // Will not overflow.
   steps_++;
-
-  // Now propagate the amplitude from head to tail
-  // Number of steps executed before a propagation happens
-  // const size_t kPropagationInterval = (1. / group_velocity_) / kNumJoints /
-  // dt;
-  // if (steps_ % kPropagationInterval == 0) {
-  //   bool kEnableBackwardShift = 0;
-  //   ShiftArray(amplitudes_, command_amplitude_, kEnableBackwardShift);
-  //   ShiftArray(frequencies_, command_frequency_, kEnableBackwardShift);
-  // }
-
   // For the simulation duration if won't overflow.
   for (auto &motor_function : motor_functions_) {
     motor_function->Step(dt);
   }
 
-  auto torque = ComputeInternalTorque();
+  // Update all window params according to the compliance parameter
+  UpdateWindowParams(dt);
+  // Apply the window params.
+  ApplyWindowParams();
+  // Propagate the windows from head to tail
+  PropagateWindows(dt);
 }
 
 size_t Controller::GetNumMotors() { return robot_->motors.size(); }

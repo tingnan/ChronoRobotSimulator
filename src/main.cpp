@@ -117,12 +117,7 @@ int main(int argc, char *argv[]) {
   ch_app.AssetBindAll();
   ch_app.AssetUpdateAll();
 
-  // Even receiver
-  MyEventReceiver receiver(&ch_app, &controller);
-  ch_app.SetUserEventReceiver(&receiver);
-
   // get all the RFT body_list to interact
-  // std::vector<RFTBody> &body_list = robot_builder.getRFTBodyList();
 
   // set io
   std::ofstream mov_file("mov.dat");
@@ -138,6 +133,7 @@ int main(int argc, char *argv[]) {
   // Use a controller
   Controller controller(&ch_system, &i_robot);
 
+  // Now set the controller params.
   if (argc < 4) {
     std::cout << "no command params input!\n";
     exit(0);
@@ -146,8 +142,11 @@ int main(int argc, char *argv[]) {
   command_params["duration"] = atof(argv[2]);
   command_params["amplitude"] = atof(argv[3]);
   controller.SetDefaultParams(command_params);
-  controller.PushCommandToQueue(command_params);
   controller.EnablePosMotorControl();
+
+  // Even receiver
+  MyEventReceiver receiver(&ch_app, &controller);
+  ch_app.SetUserEventReceiver(&receiver);
 
   // screen capture?
   ch_app.SetVideoframeSave(false);
@@ -172,8 +171,9 @@ int main(int argc, char *argv[]) {
       ch_app.GetVideoDriver()->endScene();
 
       if (!ch_app.GetPaused()) {
-        std::cout << std::fixed << std::setprecision(4) << ch_system.GetChTime()
-                  << std::endl;
+        // std::cout << std::fixed << std::setprecision(4) <<
+        // ch_system.GetChTime()
+        //          << std::endl;
         if (ch_system.GetChTime() > 20) {
         }
       }

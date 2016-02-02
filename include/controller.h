@@ -20,10 +20,10 @@ struct WaveWindow {
   // The starting joint index of the window, allowing negative value.
   int window_start;
   // The span of the window, which is always assumed to be a half wave length.
-  size_t window_width;
+  int window_width;
   // The window wave parameters
   double amplitude;
-  double amp_modifier;
+  double amp_modifier = 1.0;
   // The temporal frequency is not a independent parameter. Once the wave group
   // speed is determined the temporal frequency is extracted from the width of
   // the window.
@@ -44,13 +44,21 @@ public:
   void EnablePosMotorControl();
   // Change the undultation amplitude of the snake
   void SetDefaultParams(const Json::Value &command);
-  void PushCommandToQueue(const Json::Value &command);
 
 private:
   // Process the commands in the queue, one at a time
   void ProcessCommandQueue(double dt);
+
+  // Generate a new window, maybe taken from the recycled window
+  WaveWindow GenerateDefaultWindow();
+  // Initialize a window coverage
+  void InitializeWindows();
   // Propagate window
-  void PropagateWindows();
+  void PropagateWindows(double dt);
+  // Update window params using the compliance params
+  void UpdateWindowParams(double dt);
+  // Apply window params to motor functions
+  void ApplyWindowParams();
 
   // The torques at each joint contributed from the contact force and/or media
   // resistance.
@@ -74,6 +82,8 @@ private:
 
   // Buffers for wave windows.
   std::list<WaveWindow> wave_windows_;
+  // Recycled wave windows
+  std::list<WaveWindow> past_windows_;
   // motor functions to be adjusted based on the window it belongs to
   std::vector<chrono::ChSharedPtr<chrono::ChFunctionMotor>> motor_functions_;
 

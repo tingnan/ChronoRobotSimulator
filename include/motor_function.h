@@ -20,6 +20,8 @@ public:
   double Get_y_dx(double t) {
     return amplitude_ * frequency_ * cos(cumulated_phase_);
   }
+  void SetAmplitude(double amp) { amplitude_ = amp; }
+  void SetFrequency(double freq) { frequency_ = freq; }
 
 protected:
   double amplitude_ = 0;
