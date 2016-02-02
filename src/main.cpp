@@ -149,10 +149,10 @@ int main(int argc, char *argv[]) {
   ch_app.SetUserEventReceiver(&receiver);
 
   // screen capture?
-  ch_app.SetVideoframeSave(false);
+  ch_app.SetVideoframeSave(true);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 60) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 100) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();

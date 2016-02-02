@@ -38,9 +38,9 @@ void BuildWorld(ChSystem *ch_system, const Json::Value &params) {
         body_ptr->SetBodyFixed(true);
         body_ptr->SetIdentifier(-1);
         body_ptr->GetMaterialSurface()->SetFriction(kFriction);
-        double x_pos = x_grid * kGridDist + normal_dist_radius(generator);
+        double x_pos = x_grid * kGridDist + 0.0 * normal_dist_radius(generator);
         double z_pos = z_grid * kGridDist - 0.5 * kGridSize * kGridDist +
-                       normal_dist_radius(generator);
+                       0.0 * normal_dist_radius(generator);
         body_ptr->SetPos(ChVector<>(x_pos, 0, z_pos));
         ch_system->Add(body_ptr);
       }

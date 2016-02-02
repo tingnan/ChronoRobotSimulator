@@ -22,6 +22,8 @@ public:
   }
   void SetAmplitude(double amp) { amplitude_ = amp; }
   void SetFrequency(double freq) { frequency_ = freq; }
+  double GetAmplitude() { return amplitude_; }
+  double GetFrequency() { return frequency_; }
 
 protected:
   double amplitude_ = 0;

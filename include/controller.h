@@ -23,11 +23,15 @@ struct WaveWindow {
   int window_width;
   // The window wave parameters
   double amplitude;
+  // the amplitude modifier
   double amp_modifier = 1.0;
+  double amp_modifier_dt = 0;
   // The temporal frequency is not a independent parameter. Once the wave group
   // speed is determined the temporal frequency is extracted from the width of
   // the window.
   double frequency;
+  // ext load history
+  std::list<double> amp_history;
 };
 
 class Controller {
@@ -46,11 +50,9 @@ public:
   void SetDefaultParams(const Json::Value &command);
 
 private:
-  // Process the commands in the queue, one at a time
-  void ProcessCommandQueue(double dt);
-
   // Generate a new window, maybe taken from the recycled window
   WaveWindow GenerateDefaultWindow();
+  WaveWindow GenerateWindow();
   // Initialize a window coverage
   void InitializeWindows();
   // Propagate window
@@ -72,13 +74,10 @@ private:
   chrono::ContactExtractor *contact_reporter_;
 
   // Parameters for the position control.
-  double num_waves_ = 1.0;
+  double default_amplitude_ = 0.40;
   double default_frequency_ = 0.10 * chrono::CH_C_2PI;
-  double default_amplitude_ = 0.35;
-  double group_velocity_ = default_frequency_ / 2.0 / chrono::CH_C_2PI;
-  // Parameters for advanced control.
-  double command_frequency_ = default_frequency_;
-  double command_amplitude_ = default_amplitude_;
+  double group_velocity_ = 0.05;
+  double num_waves_ = default_frequency_ / chrono::CH_C_2PI / group_velocity_;
 
   // Buffers for wave windows.
   std::list<WaveWindow> wave_windows_;
@@ -86,14 +85,7 @@ private:
   std::list<WaveWindow> past_windows_;
   // motor functions to be adjusted based on the window it belongs to
   std::vector<chrono::ChSharedPtr<chrono::ChFunctionMotor>> motor_functions_;
-
-  // TODO
-  std::queue<Json::Value> command_queue_;
-  // TODO
-  int command_count_down_ = 0;
-  // step counting
+  // step count
   size_t steps_ = 0;
-  // current command counting; TODO
-  size_t command_count_ = 0;
 };
 #endif // INCLUDE_CHFUNCTION_CONTROLLER_H_

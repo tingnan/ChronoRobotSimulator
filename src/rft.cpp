@@ -1,7 +1,7 @@
 #include <algorithm>
-#include <vector>
 #include <array>
 #include <iterator>
+#include <vector>
 
 #include <chrono_irrlicht/ChIrrApp.h>
 #include <physics/ChBody.h>
@@ -112,7 +112,7 @@ void ForceHu(double deltah, double cospsi, double sinpsi, double area,
              double *fnorm, double *fpara) {
   // cospsi (n \cdot v), sinpsi (t \cdot v)
   // force is proportional to velocity as well
-  double prefac = 9.81 * deltah * area * 5e2;
+  double prefac = 9.81 * deltah * area * 1e3;
   double mu_t = 0.30, mu_f = 0.10, mu_b = 0.10;
   *fnorm = prefac * mu_t * cospsi;
   *fpara = prefac * (mu_f * hevistep(sinpsi) + mu_b * (1 - hevistep(sinpsi))) *
@@ -194,8 +194,8 @@ Value Interpolate2(const Scalar xbin[], size_t size_x, const Scalar ybin[],
 }
 } // namespace
 
-std::vector<chrono::ChVector<> > RFTBody::GetTransformedNormalList() {
-  std::vector<chrono::ChVector<> > output;
+std::vector<chrono::ChVector<>> RFTBody::GetTransformedNormalList() {
+  std::vector<chrono::ChVector<>> output;
   output.reserve(mesh.normals.size());
   for (const auto &normal : mesh.normals) {
     output.emplace_back(chbody->TransformPointLocalToParent(normal) -
@@ -204,8 +204,8 @@ std::vector<chrono::ChVector<> > RFTBody::GetTransformedNormalList() {
   return output;
 }
 
-std::vector<chrono::ChVector<> > RFTBody::GetTransformedPositionList() {
-  std::vector<chrono::ChVector<> > output;
+std::vector<chrono::ChVector<>> RFTBody::GetTransformedPositionList() {
+  std::vector<chrono::ChVector<>> output;
   output.reserve(mesh.positions.size());
   for (const auto &pos : mesh.positions) {
     output.emplace_back(chbody->TransformPointLocalToParent(pos));
@@ -213,8 +213,8 @@ std::vector<chrono::ChVector<> > RFTBody::GetTransformedPositionList() {
   return output;
 }
 
-std::vector<chrono::ChVector<> > RFTBody::GetTransformedVelocityList() {
-  std::vector<chrono::ChVector<> > output;
+std::vector<chrono::ChVector<>> RFTBody::GetTransformedVelocityList() {
+  std::vector<chrono::ChVector<>> output;
   output.reserve(mesh.positions.size());
   for (const auto &pos : mesh.positions) {
     output.emplace_back(chbody->PointSpeedLocalToParent(pos));
@@ -268,12 +268,11 @@ void RFTSystem::InteractExt(RFTBody &rbody) {
   }
 }
 
-void
-RFTSystem::InteractPieceHorizontal(const chrono::ChVector<> &surface_position,
-                                   const chrono::ChVector<> &surface_velocity,
-                                   const chrono::ChVector<> &surface_normal,
-                                   bool is_double_sided, double area,
-                                   chrono::ChVector<> &force) {
+void RFTSystem::InteractPieceHorizontal(
+    const chrono::ChVector<> &surface_position,
+    const chrono::ChVector<> &surface_velocity,
+    const chrono::ChVector<> &surface_normal, bool is_double_sided, double area,
+    chrono::ChVector<> &force) {
   ChVector<> rft_plane_y = ydir_;
   double height = dot(rft_plane_y, surface_position);
   if (height < 0) {

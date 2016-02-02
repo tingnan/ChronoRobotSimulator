@@ -229,16 +229,6 @@ void Controller::SetDefaultParams(const Json::Value &command) {
   InitializeWindows();
 }
 
-void Controller::ProcessCommandQueue(double dt) {
-  // group_velocity_ = 0.05;
-  // const double kPropagationCycle = (1. / group_velocity_);
-  // auto command = command_queue_.front();
-  // double duration =
-  //     kPropagationCycle * command.get("duration", 0.25).asDouble();
-  // command_frequency_ = CH_C_PI / duration;
-  // command_amplitude_ = command.get("amplitude", 0.5).asDouble();
-}
-
 Eigen::VectorXd Controller::ComputeInternalTorque() {
   const size_t kNumSegs = robot_->rigid_bodies.size();
   const size_t kNJacDim = 3;
@@ -299,10 +289,67 @@ void Controller::InitializeWindows() {
   }
 }
 
+std::list<double> EstimateMeanAmps(const std::list<WaveWindow> &wave_windows) {
+  std::list<double> average_amps;
+  average_amps.resize(0);
+  for (auto &window : wave_windows) {
+    double load = 0;
+    for (auto amp : window.amp_history) {
+      load += amp;
+    }
+    if (window.amp_history.size() > 0)
+      average_amps.push_back(load / window.amp_history.size());
+    else {
+      average_amps.push_back(0);
+    }
+  }
+  return average_amps;
+}
+
+double CalculateStandardDeviation(const std::list<double> &average_amps,
+                                  double mean_value) {
+  double std_val = 0;
+  for (auto amp_modifer : average_amps) {
+    std_val += (amp_modifer - mean_value) * (amp_modifer - mean_value);
+  }
+  std_val = sqrt(std_val / average_amps.size());
+  return std_val;
+}
+
+double EmpiricalWindowWidth(double std_amp_modifier) {
+  const double kMaxSTDModifier = 0.5;
+  std_amp_modifier = std::min(kMaxSTDModifier, std_amp_modifier);
+  return (0.18 - 0.4) / kMaxSTDModifier * std_amp_modifier + 0.4;
+}
+
+// The function is called only once when at propagation of windows
+WaveWindow Controller::GenerateWindow() {
+  // Estimate curvature history for all windows
+  auto average_amps = EstimateMeanAmps(wave_windows_);
+  double std_amp_modifier = CalculateStandardDeviation(average_amps, 1.0);
+  // chrono::CH_C_PI * group_velocity_ / frequency * kNumJoints == width;
+
+  WaveWindow new_window;
+  new_window.amp_modifier = 1;
+  // Start at head
+  const size_t kNumJoints = robot_->motors.size();
+  new_window.window_start = kNumJoints - 1;
+  new_window.window_width =
+      std::max(ceil(kNumJoints * EmpiricalWindowWidth(std_amp_modifier)), 1.0);
+  const double kOptimalRelCurv = 6.0;
+  new_window.amplitude = kOptimalRelCurv / new_window.window_width / 2;
+  new_window.frequency =
+      chrono::CH_C_PI * group_velocity_ / new_window.window_width * kNumJoints;
+  std::cout << new_window.window_width << ":" << new_window.frequency
+            << std::endl;
+  return new_window;
+}
+
 void PrintAllWindows(const std::list<WaveWindow> &windows) {
   for (auto &window : windows) {
     std::cout << window.window_start << ":"
-              << window.window_start + window.window_width - 1 << ",";
+              << window.window_start + window.window_width - 1 << ":"
+              << window.amp_modifier << ",";
   }
   std::cout << std::endl;
 }
@@ -325,18 +372,20 @@ void Controller::PropagateWindows(double dt) {
       // past_windows_.emplace_back(front_window);
       wave_windows_.pop_front();
     }
+
     // Now check for coverage: is it necessary to append another window to the
     // back of the list? Notice that the list may have been changed!
     if (wave_windows_.size() == 0) {
       // This happens when there is only 1 joint along the body
-      wave_windows_.emplace_back(GenerateDefaultWindow());
+      wave_windows_.emplace_back(GenerateWindow());
     }
     // back() function is undefined if the list is empty
     if (wave_windows_.back().window_start + wave_windows_.back().window_width <
         kNumJoints) {
-      wave_windows_.emplace_back(GenerateDefaultWindow());
+      wave_windows_.emplace_back(GenerateWindow());
     }
-    // PrintAllWindows(wave_windows_);
+    GenerateWindow();
+    PrintAllWindows(wave_windows_);
   }
 }
 
@@ -344,11 +393,42 @@ void Controller::UpdateWindowParams(double dt) {
   // Compute the contact induced torques at each joint
   auto torque_int = ComputeInternalTorque();
   const size_t kNumJoints = robot_->motors.size();
+  const double kMaxRelCurvature = 11.5;
+  // keep upto 1s of curvature history
+  const size_t kMaxAMHistory = 500;
   for (auto &window : wave_windows_) {
     // Compute the range of motors the window contains
     int beg = std::max(window.window_start, 0);
     int end =
         std::min(window.window_start + window.window_width, int(kNumJoints));
+    double shape_force = 0;
+
+    for (size_t i = beg; i < end; ++i) {
+      // The jacobian mapping
+      shape_force -= motor_functions_[i]->Get_y(0) * torque_int(i);
+    }
+    // Clamp the force
+    const double kMaxShapeForce = 20.0;
+    shape_force =
+        std::max(std::min(shape_force, kMaxShapeForce), -kMaxShapeForce);
+    // save the load history into its history queue
+
+    const double kDmp = 3.0;
+    const double kSpr = 3.0;
+    const double kMas = 1.0;
+    double amp_modifier_ddt = (shape_force - window.amp_modifier_dt * kDmp -
+                               kSpr * (window.amp_modifier - 1.0)) /
+                              kMas;
+    window.amp_modifier_dt += amp_modifier_ddt * dt;
+    window.amp_modifier += window.amp_modifier_dt * dt;
+    double max_amp = kMaxRelCurvature / window.window_width / 2;
+    window.amp_modifier = std::max(
+        std::min(window.amp_modifier, max_amp / window.amplitude), 0.0);
+
+    window.amp_history.push_back(window.amp_modifier);
+    if (window.amp_history.size() > kMaxAMHistory) {
+      window.amp_history.pop_front();
+    }
   }
 }
 
@@ -381,6 +461,7 @@ void Controller::Step(double dt) {
   // Apply the window params.
   ApplyWindowParams();
   // Propagate the windows from head to tail
+
   PropagateWindows(dt);
 }
 
