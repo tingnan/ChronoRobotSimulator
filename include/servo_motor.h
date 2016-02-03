@@ -24,7 +24,7 @@ public:
   double Get_y_dx(double curr_t) { return 0; }
 
 protected:
-  double p_gain_ = 3.40;
+  double p_gain_ = 3.50;
   double i_gain_ = 0.00;
   double d_gain_ = 1e-3;
   double t_limit_ = 1.5;
@@ -41,6 +41,13 @@ public:
   void Initialize(ChSharedPtr<ChFunction> motor_funct,
                   ChLinkEngine::eCh_eng_mode mode_flag);
   void Serialize();
+  double GetMotorRotation() { return engine_->Get_mot_rot(); }
+  double GetMotorTorque() {
+    if (motor_mode_ == ChLinkEngine::ENG_MODE_ROTATION) {
+      return engine_->Get_react_torque().z;
+    }
+    return engine_->Get_mot_torque();
+  }
 
 private:
   // The underlying ChLinkEngine used.

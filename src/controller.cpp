@@ -308,11 +308,19 @@ std::list<double> EstimateMeanAmps(const std::list<WaveWindow> &wave_windows) {
 
 double CalculateStandardDeviation(const std::list<double> &average_amps,
                                   double mean_value) {
+
   double std_val = 0;
   for (auto amp_modifer : average_amps) {
     std_val += (amp_modifer - mean_value) * (amp_modifer - mean_value);
   }
   std_val = sqrt(std_val / average_amps.size());
+  // double std_val = 0;
+  // for (auto amp_modifer : average_amps) {
+  //   std_val = std::max((amp_modifer - mean_value) * (amp_modifer -
+  //   mean_value),
+  //                      std_val);
+  // }
+
   return std_val;
 }
 
@@ -384,7 +392,6 @@ void Controller::PropagateWindows(double dt) {
         kNumJoints) {
       wave_windows_.emplace_back(GenerateWindow());
     }
-    GenerateWindow();
     PrintAllWindows(wave_windows_);
   }
 }
@@ -393,9 +400,9 @@ void Controller::UpdateWindowParams(double dt) {
   // Compute the contact induced torques at each joint
   auto torque_int = ComputeInternalTorque();
   const size_t kNumJoints = robot_->motors.size();
-  const double kMaxRelCurvature = 11.5;
+  const double kMaxRelCurvature = 10;
   // keep upto 1s of curvature history
-  const size_t kMaxAMHistory = 500;
+  const size_t kMaxAMHistory = 100;
   for (auto &window : wave_windows_) {
     // Compute the range of motors the window contains
     int beg = std::max(window.window_start, 0);
@@ -405,16 +412,17 @@ void Controller::UpdateWindowParams(double dt) {
 
     for (size_t i = beg; i < end; ++i) {
       // The jacobian mapping
-      shape_force -= motor_functions_[i]->Get_y(0) * torque_int(i);
+      shape_force -= robot_->motors[i]->GetMotorRotation() * torque_int(i);
     }
+    // std::cout << shape_force << " ";
     // Clamp the force
-    const double kMaxShapeForce = 20.0;
+    const double kMaxShapeForce = 40.0;
     shape_force =
         std::max(std::min(shape_force, kMaxShapeForce), -kMaxShapeForce);
     // save the load history into its history queue
 
-    const double kDmp = 3.0;
-    const double kSpr = 3.0;
+    const double kDmp = 2.0;
+    const double kSpr = 2.0;
     const double kMas = 1.0;
     double amp_modifier_ddt = (shape_force - window.amp_modifier_dt * kDmp -
                                kSpr * (window.amp_modifier - 1.0)) /
@@ -430,6 +438,7 @@ void Controller::UpdateWindowParams(double dt) {
       window.amp_history.pop_front();
     }
   }
+  // std::cout << std::endl;
 }
 
 void Controller::ApplyWindowParams() {
