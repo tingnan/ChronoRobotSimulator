@@ -306,28 +306,26 @@ std::list<double> EstimateMeanAmps(const std::list<WaveWindow> &wave_windows) {
   return average_amps;
 }
 
+double EmpiricalWindowWidth(double std_amp_modifier) {
+  const double kMaxSTDModifier = 0.4;
+  std_amp_modifier = std::min(kMaxSTDModifier, std_amp_modifier);
+  return (0.18 - 0.4) / kMaxSTDModifier * std_amp_modifier + 0.4;
+}
+
 double CalculateStandardDeviation(const std::list<double> &average_amps,
                                   double mean_value) {
 
-  double std_val = 0;
-  for (auto amp_modifer : average_amps) {
-    std_val += (amp_modifer - mean_value) * (amp_modifer - mean_value);
-  }
-  std_val = sqrt(std_val / average_amps.size());
   // double std_val = 0;
   // for (auto amp_modifer : average_amps) {
-  //   std_val = std::max((amp_modifer - mean_value) * (amp_modifer -
-  //   mean_value),
-  //                      std_val);
+  //   std_val += (amp_modifer - mean_value) * (amp_modifer - mean_value);
   // }
+  // std_val = sqrt(std_val / average_amps.size());
+  double std_val = 0;
+  for (auto amp_modifer : average_amps) {
+    std_val = std::max(fabs(amp_modifer - mean_value), std_val);
+  }
 
   return std_val;
-}
-
-double EmpiricalWindowWidth(double std_amp_modifier) {
-  const double kMaxSTDModifier = 0.5;
-  std_amp_modifier = std::min(kMaxSTDModifier, std_amp_modifier);
-  return (0.18 - 0.4) / kMaxSTDModifier * std_amp_modifier + 0.4;
 }
 
 // The function is called only once when at propagation of windows
@@ -348,7 +346,7 @@ WaveWindow Controller::GenerateWindow() {
   new_window.amplitude = kOptimalRelCurv / new_window.window_width / 2;
   new_window.frequency =
       chrono::CH_C_PI * group_velocity_ / new_window.window_width * kNumJoints;
-  std::cout << new_window.window_width << ":" << new_window.frequency
+  std::cout << new_window.window_width << ":" << new_window.amplitude
             << std::endl;
   return new_window;
 }
@@ -402,17 +400,21 @@ void Controller::UpdateWindowParams(double dt) {
   const size_t kNumJoints = robot_->motors.size();
   const double kMaxRelCurvature = 10;
   // keep upto 1s of curvature history
-  const size_t kMaxAMHistory = 100;
+  const size_t kMaxAMHistory = 500;
   for (auto &window : wave_windows_) {
     // Compute the range of motors the window contains
     int beg = std::max(window.window_start, 0);
     int end =
         std::min(window.window_start + window.window_width, int(kNumJoints));
     double shape_force = 0;
-
+    double window_amp_std = 0;
     for (size_t i = beg; i < end; ++i) {
       // The jacobian mapping
       shape_force -= robot_->motors[i]->GetMotorRotation() * torque_int(i);
+      double angle_diff =
+          robot_->motors[i]->GetMotorRotation() - motor_functions_[i]->Get_y(0);
+      // std::cout << i << ":" << angle_diff << std::endl;
+      window_amp_std += angle_diff * angle_diff;
     }
     // std::cout << shape_force << " ";
     // Clamp the force
