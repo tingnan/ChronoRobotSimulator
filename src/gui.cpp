@@ -18,15 +18,15 @@ MyEventReceiver::MyEventReceiver(ChIrrApp *app, Controller *controller)
 
   // now let us define some gui layout;
   mygui->addStaticText(L"pause physics:", core::rect<s32>(220, 10, 300, 30),
-                       false, false, 0,
-                       101)->setTextAlignment(EGUIA_CENTER, EGUIA_CENTER);
+                       false, false, 0, 101)
+      ->setTextAlignment(EGUIA_CENTER, EGUIA_CENTER);
   checkbox_pause_sim_ =
       mygui->addCheckBox(false, core::rect<s32>(300, 10, 320, 30), 0, 102, L"");
   ch_app_->SetPaused(checkbox_pause_sim_->isChecked());
 
   mygui->addStaticText(L"time step:", core::rect<s32>(330, 10, 380, 30), false,
-                       false, 0,
-                       103)->setTextAlignment(EGUIA_CENTER, EGUIA_CENTER);
+                       false, 0, 103)
+      ->setTextAlignment(EGUIA_CENTER, EGUIA_CENTER);
   edbox_time_step_ = mygui->addEditBox(
       L"1e-2", core::rect<s32>(380, 10, 430, 30), true, 0, 104);
   edbox_time_step_->setTextAlignment(EGUIA_CENTER, EGUIA_CENTER);

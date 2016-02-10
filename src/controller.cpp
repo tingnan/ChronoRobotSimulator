@@ -419,27 +419,33 @@ void Controller::UpdateWindowParams(double dt) {
     int end =
         std::min(window.window_start + window.window_width, int(kNumJoints));
     double shape_force = 0;
-    for (size_t i = beg; i < end; ++i) {
-      // The jacobian mapping
-      shape_force -= robot_->motors[i]->GetMotorRotation() * torque_int(i);
-    }
+    // for (size_t i = beg; i < end; ++i) {
+    //   // The jacobian mapping
+    //   shape_force -= robot_->motors[i]->GetMotorRotation() * torque_int(i);
+    // }
 
     for (size_t i = 0; i < window.amp_modifiers.size(); ++i) {
       int curr_motor_id = i + beg;
-      double jnt_shape_force = shape_force;
-      if (contact_index - curr_motor_id >= 0 &&
-          contact_index - curr_motor_id <= 15) {
-        jnt_shape_force += 30;
+      if (curr_motor_id >= end) {
+        continue;
       }
-      // std::cout << shape_force << " ";
+      double jnt_shape_force =
+          -robot_->motors[curr_motor_id]->GetMotorRotation() *
+          torque_int(curr_motor_id);
+      // std::cout << jnt_shape_force << std::endl;
+      // if (contact_index - curr_motor_id >= 0 &&
+      //     contact_index - curr_motor_id <= 15) {
+      //   jnt_shape_force = -jnt_shape_force;
+      // }
+      //
       // Clamp the force
-      const double kMaxShapeForce = 40.0;
-      shape_force =
+      const double kMaxShapeForce = 10.0;
+      jnt_shape_force = shape_force =
           std::max(std::min(jnt_shape_force, kMaxShapeForce), -kMaxShapeForce);
       // save the load history into its history queue
-
-      const double kDmp = 1;
-      const double kSpr = 1;
+      // std::cout << jnt_shape_force << "\n";
+      const double kDmp = 0.5;
+      const double kSpr = 0.5;
       const double kMas = 1.0;
       double amp_modifier_ddt =
           (jnt_shape_force - window.amp_modifiers_dt[i] * kDmp -
