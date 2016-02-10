@@ -24,14 +24,12 @@ struct WaveWindow {
   // The window wave parameters
   double amplitude;
   // the amplitude modifier
-  double amp_modifier = 1.0;
-  double amp_modifier_dt = 0;
+  std::vector<double> amp_modifiers;
+  std::vector<double> amp_modifiers_dt;
   // The temporal frequency is not a independent parameter. Once the wave group
   // speed is determined the temporal frequency is extracted from the width of
   // the window.
   double frequency;
-  // ext load history
-  std::list<double> amp_history;
 };
 
 class Controller {
@@ -61,6 +59,14 @@ private:
   void UpdateWindowParams(double dt);
   // Apply window params to motor functions
   void ApplyWindowParams();
+
+  // Grab and glide control based on torque. First we determine whether to grab.
+  int DetermineContactPosition();
+
+  // The parameter to indicate whether or not to grab
+  bool enable_head_grab_ = false;
+  int last_contact_index_ = -1;
+  int grab_count_down_;
 
   // The torques at each joint contributed from the contact force and/or media
   // resistance.

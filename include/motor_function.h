@@ -21,9 +21,10 @@ public:
     return amplitude_ * frequency_ * cos(cumulated_phase_);
   }
   void SetAmplitude(double amp) { amplitude_ = amp; }
-  void SetFrequency(double freq) { frequency_ = freq; }
+  void SetFrequency(double freq) { frequency_ = freq; };
   double GetAmplitude() { return amplitude_; }
   double GetFrequency() { return frequency_; }
+  double GetCurrentPhase() { return cumulated_phase_; }
 
 protected:
   double amplitude_ = 0;

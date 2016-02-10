@@ -74,6 +74,7 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     ground->SetPos(ChVector<>(0, -0.5, 0));
     ground->SetIdentifier(-2);
     ground->GetMaterialSurface()->SetFriction(0.0);
+
     ch_system->Add(ground);
     // the Snake params
     const size_t kNumSegments = 30;
@@ -84,7 +85,7 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> z_pos_gen(-0.10, 0.10);
 
-    ChVector<> center_pos(-kL * 0.0, -kW * 0.5, z_pos_gen(gen));
+    ChVector<> center_pos(-kL * 1.02, -kW * 0.5, -0.0);
     std::vector<ChSharedBodyPtr> body_container_;
     i_robot.inertia.resize(kNumSegments * 3, kNumSegments * 3);
     i_robot.inertia.setZero();
@@ -105,6 +106,7 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
       body_ptr->SetPos(center_pos);
       body_ptr->SetIdentifier(i);
       body_ptr->GetMaterialSurface()->SetFriction(kFriction);
+      body_ptr->GetMaterialSurface()->SetCompliance(0.001f / 3);
       ch_system->Add(body_ptr);
       i_robot.rigid_bodies.emplace_back(body_ptr);
       i_robot.rft_bodies.emplace_back(body_ptr.get());
