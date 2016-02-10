@@ -263,41 +263,6 @@ Eigen::VectorXd Controller::ComputeInternalTorque() {
   return torque_int;
 }
 
-WaveWindow Controller::GenerateDefaultWindow() {
-  WaveWindow default_window;
-  default_window.amplitude = default_amplitude_;
-  default_window.frequency = default_frequency_;
-  // Start at head
-  const size_t kNumJoints = robot_->motors.size();
-  default_window.window_start = kNumJoints - 1;
-  default_window.window_width =
-      std::max(ceil(kNumJoints / num_waves_ / 2), 1.0);
-  default_window.amp_modifiers.resize(default_window.window_width);
-  default_window.amp_modifiers_dt.resize(default_window.window_width);
-  for (auto &modifer : default_window.amp_modifiers) {
-    modifer = 1.0;
-  }
-
-  for (auto &modifer_dt : default_window.amp_modifiers_dt) {
-    modifer_dt = 0.0;
-  }
-
-  return default_window;
-}
-
-void Controller::InitializeWindows() {
-  // Initialize all wave windows using the default params
-  wave_windows_.resize(0);
-  wave_windows_.emplace_front(GenerateDefaultWindow());
-  auto last_window = wave_windows_.begin();
-  while (last_window->window_start >= 0) {
-    wave_windows_.emplace_front(GenerateDefaultWindow());
-    wave_windows_.front().window_start =
-        last_window->window_start - wave_windows_.front().window_width;
-    last_window = wave_windows_.begin();
-  }
-}
-
 // std::list<double> EstimateMeanAmps(const std::list<WaveWindow> &wave_windows)
 // {
 //   std::list<double> average_amps;
@@ -365,6 +330,41 @@ void Controller::InitializeWindows() {
 //   return new_window;
 // }
 
+WaveWindow Controller::GenerateDefaultWindow() {
+  WaveWindow default_window;
+  default_window.amplitude = default_amplitude_;
+  default_window.frequency = default_frequency_;
+  // Start at head
+  const size_t kNumJoints = robot_->motors.size();
+  default_window.window_start = kNumJoints - 1;
+  default_window.window_width = 5;
+  // std::max(ceil(kNumJoints / num_waves_ / 2), 1.0);
+  default_window.amp_modifiers.resize(default_window.window_width);
+  default_window.amp_modifiers_dt.resize(default_window.window_width);
+  for (auto &modifer : default_window.amp_modifiers) {
+    modifer = default_window.amplitude;
+  }
+
+  for (auto &modifer_dt : default_window.amp_modifiers_dt) {
+    modifer_dt = 0.0;
+  }
+
+  return default_window;
+}
+
+void Controller::InitializeWindows() {
+  // Initialize all wave windows using the default params
+  wave_windows_.resize(0);
+  wave_windows_.emplace_front(GenerateDefaultWindow());
+  auto last_window = wave_windows_.begin();
+  while (last_window->window_start >= 0) {
+    wave_windows_.emplace_front(GenerateDefaultWindow());
+    wave_windows_.front().window_start =
+        last_window->window_start - wave_windows_.front().window_width;
+    last_window = wave_windows_.begin();
+  }
+}
+
 void PrintAllWindows(const std::list<WaveWindow> &windows) {
   for (auto &window : windows) {
     std::cout << window.window_start << ":"
@@ -419,19 +419,18 @@ void Controller::UpdateWindowParams(double dt) {
     int end =
         std::min(window.window_start + window.window_width, int(kNumJoints));
     double shape_force = 0;
-    // for (size_t i = beg; i < end; ++i) {
-    //   // The jacobian mapping
-    //   shape_force -= robot_->motors[i]->GetMotorRotation() * torque_int(i);
-    // }
+    for (size_t i = beg; i < end; ++i) {
+      // The jacobian mapping
+      shape_force -= robot_->motors[i]->GetMotorRotation() * torque_int(i);
+    }
 
     for (size_t i = 0; i < window.amp_modifiers.size(); ++i) {
       int curr_motor_id = i + beg;
       if (curr_motor_id >= end) {
         continue;
       }
-      double jnt_shape_force =
-          -robot_->motors[curr_motor_id]->GetMotorRotation() *
-          torque_int(curr_motor_id);
+      // robot_->motors[curr_motor_id]->GetMotorRotation()
+      double jnt_shape_force = shape_force;
       // std::cout << jnt_shape_force << std::endl;
       // if (contact_index - curr_motor_id >= 0 &&
       //     contact_index - curr_motor_id <= 15) {
@@ -439,24 +438,24 @@ void Controller::UpdateWindowParams(double dt) {
       // }
       //
       // Clamp the force
-      const double kMaxShapeForce = 10.0;
-      jnt_shape_force = shape_force =
+      const double kMaxShapeForce = 20.0;
+      jnt_shape_force =
           std::max(std::min(jnt_shape_force, kMaxShapeForce), -kMaxShapeForce);
       // save the load history into its history queue
       // std::cout << jnt_shape_force << "\n";
-      const double kDmp = 0.5;
-      const double kSpr = 0.5;
+      const double kDmp = 2.0;
+      const double kSpr = 2.0;
       const double kMas = 1.0;
       double amp_modifier_ddt =
           (jnt_shape_force - window.amp_modifiers_dt[i] * kDmp -
-           kSpr * (window.amp_modifiers[i] - 1.0)) /
+           kSpr * (window.amp_modifiers[i] - window.amplitude)) /
           kMas;
       window.amp_modifiers_dt[i] += amp_modifier_ddt * dt;
       window.amp_modifiers[i] += window.amp_modifiers_dt[i] * dt;
       const double kMaxRelCurvature = 12;
       double max_amp = kMaxRelCurvature / window.window_width / 2;
-      window.amp_modifiers[i] = std::max(
-          std::min(window.amp_modifiers[i], max_amp / window.amplitude), 0.0);
+      window.amp_modifiers[i] =
+          std::max(std::min(window.amp_modifiers[i], max_amp), 0.0);
     }
   }
   // std::cout << std::endl;
@@ -472,8 +471,7 @@ void Controller::ApplyWindowParams() {
     size_t j = 0;
     for (size_t i = beg; i < end; ++i) {
       // Apply the window params to the joint motor functions.
-      motor_functions_[i]->SetAmplitude(window.amplitude *
-                                        window.amp_modifiers[j]);
+      motor_functions_[i]->SetAmplitude(window.amp_modifiers[j]);
       motor_functions_[i]->SetFrequency(window.frequency);
       j = j + 1;
     }
@@ -485,7 +483,7 @@ void Controller::Step(double dt) {
   // Will not overflow.
   steps_++;
   // For the simulation duration if won't overflow.
-  if (!enable_head_grab_) {
+  if (true) {
     for (auto &motor_function : motor_functions_) {
       motor_function->Step(dt);
     }
@@ -508,8 +506,14 @@ int Controller::DetermineContactPosition() {
     auto contact_forces = contact_reporter_->GetContactForces();
     // examine the contact force distribution along the body
     const double kNumSegs = robot_->rigid_bodies.size();
+    // for (size_t i = 0; i < kNumSegs; ++i) {
+    //   double total_force = contact_forces[i].Length();
+    //   std::cout << total_force << ",";
+    // }
+    // std::cout << std::endl;
     for (size_t i = 0; i < kNumSegs; ++i) {
       double total_force = contact_forces[i].Length();
+      // std::cout << total_force << std::endl;
       // std::cout << i << " " << total_force << std::endl;
       if (total_force > 0) {
         // There is a contact at ith segment, we have to

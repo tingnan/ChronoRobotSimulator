@@ -81,8 +81,8 @@ private:
 
   // Parameters for the position control.
   double default_amplitude_ = 0.40;
-  double default_frequency_ = 0.10 * chrono::CH_C_2PI;
-  double group_velocity_ = 0.05;
+  double default_frequency_ = 0.20 * chrono::CH_C_2PI;
+  double group_velocity_ = 0.10;
   double num_waves_ = default_frequency_ / chrono::CH_C_2PI / group_velocity_;
 
   // Buffers for wave windows.
