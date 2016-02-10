@@ -422,10 +422,6 @@ void Controller::UpdateWindowParams(double dt) {
     for (size_t i = beg; i < end; ++i) {
       // The jacobian mapping
       shape_force -= robot_->motors[i]->GetMotorRotation() * torque_int(i);
-      double angle_diff =
-          robot_->motors[i]->GetMotorRotation() - motor_functions_[i]->Get_y(0);
-      // std::cout << i << ":" << angle_diff << std::endl;
-      window_amp_std += angle_diff * angle_diff;
     }
 
     for (size_t i = 0; i < window.amp_modifiers.size(); ++i) {
