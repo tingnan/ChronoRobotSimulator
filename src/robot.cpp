@@ -79,7 +79,7 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     // the Snake params
     const size_t kNumSegments = 30;
     const double kL = 1.90;
-    const double kW = 0.05;
+    const double kW = 0.09;
     const double kLx = kL / kNumSegments;
     std::random_device rd;
     std::mt19937 gen(rd());
