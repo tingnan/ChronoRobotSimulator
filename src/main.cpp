@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
   Json::Value command_params;
-  command_params["duration"] = atof(argv[2]);
+  command_params["num_waves"] = atof(argv[2]);
   command_params["amplitude"] = atof(argv[3]);
   controller.SetDefaultParams(command_params);
   controller.EnablePosMotorControl();
