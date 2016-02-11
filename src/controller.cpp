@@ -392,11 +392,37 @@ void Controller::UpdateAmplitudes(double dt) {
   // }
 }
 
+void Controller::ApplyHeadStrategy() {
+  auto contact_indices = CharacterizeContacts();
+  if (contact_indices.empty() || contact_indices.size() >= 3) {
+    return;
+  }
+  size_t head_index = contact_indices.back();
+  if (head_index < 23) {
+    return;
+  }
+
+  for (size_t i = head_index - 5; i < head_index; ++i) {
+    // double desired_angle_dt = wave_params_.amplitudes[i] *
+    //                           wave_params_.phases_dt[i] *
+    //                           cos(wave_params_.phases[i]);
+    // wave_params_.theta_dt[i] += -4 * desired_angle_dt;
+    // slows down the
+    wave_params_.phases_dt[i] -= 10; // * (head_index - 4 - i);
+  }
+}
+
 void Controller::UpdatePhases(double dt) {
   const size_t kNumJoints = robot_->motors.size();
   for (size_t i = 0; i < kNumJoints; ++i) {
+    wave_params_.desired_phases[i] += wave_params_.frequency * dt;
     wave_params_.phases_dt[i] = wave_params_.frequency;
-    wave_params_.phases[i] += wave_params_.phases_dt[i] * dt;
+  }
+  ApplyHeadStrategy();
+  for (size_t i = 0; i < kNumJoints; ++i) {
+    wave_params_.phases[i] +=
+        wave_params_.phases_dt[i] * dt -
+        0.5 * (wave_params_.phases[i] - wave_params_.desired_phases[i]);
   }
 }
 
@@ -412,41 +438,27 @@ double DthLateralInhibition(const Eigen::VectorXd &torque, int index) {
   return K * dth_dt;
 }
 
-void Controller::ApplyHeadStrategy() {
-  auto contact_indices = CharacterizeContacts();
-  if (contact_indices.empty() || contact_indices.size() >= 3) {
-    return;
-  }
-  size_t head_index = contact_indices.back();
-  if (head_index < 23) {
-    return;
-  }
-
-  for (size_t i = head_index - 5; i < head_index; ++i) {
-    double desired_angle_dt = wave_params_.amplitudes[i] *
-                              wave_params_.phases_dt[i] *
-                              cos(wave_params_.phases[i]);
-    wave_params_.theta_dt[i] += -4 * desired_angle_dt;
-  }
-}
-
 void Controller::UpdateAngles(double dt) {
-  auto torque_int = ComputeInternalTorque();
   const size_t kNumJoints = robot_->motors.size();
   for (size_t i = 0; i < kNumJoints; ++i) {
-    double desired_angle =
+    wave_params_.theta_dt[i] = wave_params_.amplitudes[i] *
+                               wave_params_.phases_dt[i] *
+                               cos(wave_params_.phases[i]);
+    wave_params_.theta[i] =
         wave_params_.amplitudes[i] * sin(wave_params_.phases[i]);
-    double desired_angle_dt = wave_params_.amplitudes[i] *
-                              wave_params_.phases_dt[i] *
-                              cos(wave_params_.phases[i]);
-    double error_angle = wave_params_.theta[i] - desired_angle;
-    wave_params_.theta_dt[i] = desired_angle_dt - 1.0 * error_angle;
-  }
-
-  ApplyHeadStrategy();
-
-  for (size_t i = 0; i < kNumJoints; ++i) {
-    wave_params_.theta[i] += wave_params_.theta_dt[i] * dt;
+    //   double desired_angle =
+    //       wave_params_.amplitudes[i] * sin(wave_params_.phases[i]);
+    //   double desired_angle_dt = wave_params_.amplitudes[i] *
+    //                             wave_params_.phases_dt[i] *
+    //                             cos(wave_params_.phases[i]);
+    //   double error_angle = wave_params_.theta[i] - desired_angle;
+    //   wave_params_.theta_dt[i] = desired_angle_dt - 1.0 * error_angle;
+    // }
+    //
+    // ApplyHeadStrategy();
+    //
+    // for (size_t i = 0; i < kNumJoints; ++i) {
+    //   wave_params_.theta[i] += wave_params_.theta_dt[i] * dt;
   }
 }
 
