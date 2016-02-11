@@ -122,8 +122,8 @@ int main(int argc, char *argv[]) {
   // set io
   std::ofstream mov_file("mov.dat");
   std::ofstream jnt_file("jnt.dat");
-  std::ofstream rft_file("rft.dat");
-  std::ofstream cot_file("cot.dat");
+  // std::ofstream rft_file("rft.dat");
+  // std::ofstream cot_file("cot.dat");
 
   // begin simulation
 
@@ -174,8 +174,8 @@ int main(int argc, char *argv[]) {
         // std::cout << std::fixed << std::setprecision(4) <<
         // ch_system.GetChTime()
         //          << std::endl;
-        if (ch_system.GetChTime() > 20) {
-        }
+        LogBodies(i_robot.rigid_bodies, mov_file);
+        LogMotors(i_robot.motors, jnt_file);
       }
       count = 0;
       continue;

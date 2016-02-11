@@ -40,7 +40,7 @@ public:
   explicit ChServoMotor(ChSharedPtr<ChLinkEngine> engine) : engine_(engine) {}
   void Initialize(ChSharedPtr<ChFunction> motor_funct,
                   ChLinkEngine::eCh_eng_mode mode_flag);
-  void Serialize();
+  int GetMotorID() { return engine_->GetIdentifier(); }
   double GetMotorRotation() { return engine_->Get_mot_rot(); }
   double GetMotorTorque() {
     if (motor_mode_ == ChLinkEngine::ENG_MODE_ROTATION) {
