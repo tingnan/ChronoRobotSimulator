@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
   ch_system.SetIterLCPmaxItersSpeed(30);
   ch_system.SetIterLCPmaxItersStab(30);
   // ch_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
-  ch_system.SetTol(1e-8);
+  ch_system.SetTol(1e-6);
   ch_system.Set_G_acc(ChVector<>(0, 0, 0));
   ChBroadPhaseCallbackNew *mcallback = new ChBroadPhaseCallbackNew;
   ch_system.GetCollisionSystem()->SetBroadPhaseCallback(mcallback);
@@ -149,10 +149,10 @@ int main(int argc, char *argv[]) {
   ch_app.SetUserEventReceiver(&receiver);
 
   // screen capture?
-  ch_app.SetVideoframeSave(false);
+  ch_app.SetVideoframeSave(true);
   ch_app.SetVideoframeSaveInterval(save_step);
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 50) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 100) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();

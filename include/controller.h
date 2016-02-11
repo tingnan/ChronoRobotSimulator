@@ -16,21 +16,21 @@ namespace chrono {
 class ContactExtractor;
 }
 
-struct WaveWindow {
-  // The starting joint index of the window, allowing negative value.
-  int window_start;
-  // The span of the window, which is always assumed to be a half wave length.
-  int window_width;
-  // The window wave parameters
-  double amplitude;
+Struct WaveParams {
+  double wave_speed;
+
   // the amplitude modifier
-  std::vector<double> amp_modifiers;
-  std::vector<double> amp_modifiers_dt;
-  // The temporal frequency is not a independent parameter. Once the wave group
-  // speed is determined the temporal frequency is extracted from the width of
-  // the window.
+  std::vector<double> desired_amplitudes;
+  std::vector<double> amplitudes;
+  std::vector<double> amplitudes_dt;
+  // The temporal frequency and number of waves. Once the wave
+  // group speed is determined the temporal frequency is extracted from the
+  // width ofthe window.
   double frequency;
-};
+  std::vector<double> phases;
+  std::vector<double> phases_dt;
+  std::vector<double> desired_phases;
+}
 
 class Controller {
 public:
@@ -56,12 +56,13 @@ private:
   // Propagate window
   void PropagateWindows(double dt);
   // Update window params using the compliance params
-  void UpdateWindowParams(double dt);
+  void UpdateAmplitudes(double dt);
+  void UpdatePhases(double dt);
   // Apply window params to motor functions
   void ApplyWindowParams();
 
   // Grab and glide control based on torque. First we determine whether to grab.
-  int DetermineContactPosition();
+  std::vector<size_t> CharacterizeContacts();
 
   // The parameter to indicate whether or not to grab
   bool enable_head_grab_ = false;
@@ -82,8 +83,21 @@ private:
   // Parameters for the position control.
   double default_amplitude_ = 0.40;
   double default_frequency_ = 0.20 * chrono::CH_C_2PI;
-  double group_velocity_ = 0.10;
+  double group_velocity_ = 0.05;
   double num_waves_ = default_frequency_ / chrono::CH_C_2PI / group_velocity_;
+
+  double amplitude;
+  // the amplitude modifier
+  std::vector<double> amp_modifiers;
+  std::vector<double> amp_modifiers_dt;
+
+  // The temporal frequency is not a independent parameter. Once the wave
+  // group speed is determined the temporal frequency is extracted from the
+  // width ofthe window.
+  double frequency;
+  std::vector<double> phases;
+  std::vector<double> phases_dt;
+  std::vector<double> desired_phases;
 
   // Buffers for wave windows.
   std::list<WaveWindow> wave_windows_;

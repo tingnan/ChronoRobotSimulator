@@ -408,11 +408,11 @@ void Controller::PropagateWindows(double dt) {
   }
 }
 
-void Controller::UpdateWindowParams(double dt) {
+void Controller::UpdateAmplitudes(double dt) {
   // Compute the contact induced torques at each joint
   auto torque_int = ComputeInternalTorque();
   const size_t kNumJoints = robot_->motors.size();
-  int contact_index = DetermineContactPosition();
+  // int contact_index = DetermineContactPosition();
   for (auto &window : wave_windows_) {
     // Compute the range of motors the window contains
     int beg = std::max(window.window_start, 0);
@@ -423,28 +423,20 @@ void Controller::UpdateWindowParams(double dt) {
       // The jacobian mapping
       shape_force -= robot_->motors[i]->GetMotorRotation() * torque_int(i);
     }
-
     for (size_t i = 0; i < window.amp_modifiers.size(); ++i) {
       int curr_motor_id = i + beg;
       if (curr_motor_id >= end) {
         continue;
       }
-      // robot_->motors[curr_motor_id]->GetMotorRotation()
       double jnt_shape_force = shape_force;
-      // std::cout << jnt_shape_force << std::endl;
-      // if (contact_index - curr_motor_id >= 0 &&
-      //     contact_index - curr_motor_id <= 15) {
-      //   jnt_shape_force = -jnt_shape_force;
-      // }
-      //
       // Clamp the force
       const double kMaxShapeForce = 20.0;
       jnt_shape_force =
           std::max(std::min(jnt_shape_force, kMaxShapeForce), -kMaxShapeForce);
       // save the load history into its history queue
       // std::cout << jnt_shape_force << "\n";
-      const double kDmp = 2.0;
-      const double kSpr = 2.0;
+      const double kDmp = 2.5;
+      const double kSpr = 2.5;
       const double kMas = 1.0;
       double amp_modifier_ddt =
           (jnt_shape_force - window.amp_modifiers_dt[i] * kDmp -
@@ -458,8 +450,9 @@ void Controller::UpdateWindowParams(double dt) {
           std::max(std::min(window.amp_modifiers[i], max_amp), 0.0);
     }
   }
-  // std::cout << std::endl;
 }
+
+void Controller::UpdatePhases(double dt) {}
 
 void Controller::ApplyWindowParams() {
   const size_t kNumJoints = robot_->motors.size();
@@ -478,89 +471,54 @@ void Controller::ApplyWindowParams() {
   }
 }
 
+std::vector<size_t> Controller::CharacterizeContacts() {
+  std::vector<size_t> useful_contact_segs;
+  contact_reporter_->Reset();
+  ch_system_->GetContactContainer()->ReportAllContacts2(contact_reporter_);
+  auto contact_forces = contact_reporter_->GetContactForces();
+  // examine the contact force distribution along the body
+  const double kNumSegs = robot_->rigid_bodies.size();
+  // Ignore the head contact
+  for (size_t i = 0; i < kNumSegs - 1; ++i) {
+    if (contact_forces[i].Length() < 1e-2) {
+      // ignore this force;
+      continue;
+    }
+    ChVector<> link_z =
+        robot_->rigid_bodies[i]->TransformDirectionLocalToParent(
+            ChVector<>(0, 0, 1));
+    int contact_side = 0;
+    if (dot(contact_forces[i], link_z) < 0) {
+      // contact on the right side
+      contact_side = 1;
+    } else {
+      contact_side = -1;
+    }
+
+    // Now we can determine if this contact force is at the right phase
+    double dth = motor_functions_[i]->Get_y_dx(0);
+    // dth and contact_side should have different sign
+    if (dth * contact_side < 0) {
+      useful_contact_segs.push_back(i);
+    }
+  }
+  return useful_contact_segs;
+}
+
 void Controller::Step(double dt) {
   // ProcessCommandQueue(dt);
   // Will not overflow.
   steps_++;
-  // For the simulation duration if won't overflow.
-  if (true) {
-    for (auto &motor_function : motor_functions_) {
-      motor_function->Step(dt);
-    }
-  }
-
   // Update all window params according to the compliance parameter
-  UpdateWindowParams(dt);
+  UpdateAmplitudes(dt);
+  UpdatePhases(dt);
   // Apply the window params.
   ApplyWindowParams();
   // Propagate the windows from head to tail
-
   PropagateWindows(dt);
-}
 
-int Controller::DetermineContactPosition() {
-  if (enable_head_grab_ == false) {
-    // Extract the contact information.
-    contact_reporter_->Reset();
-    ch_system_->GetContactContainer()->ReportAllContacts2(contact_reporter_);
-    auto contact_forces = contact_reporter_->GetContactForces();
-    // examine the contact force distribution along the body
-    const double kNumSegs = robot_->rigid_bodies.size();
-    // for (size_t i = 0; i < kNumSegs; ++i) {
-    //   double total_force = contact_forces[i].Length();
-    //   std::cout << total_force << ",";
-    // }
-    // std::cout << std::endl;
-    for (size_t i = 0; i < kNumSegs; ++i) {
-      double total_force = contact_forces[i].Length();
-      // std::cout << total_force << std::endl;
-      // std::cout << i << " " << total_force << std::endl;
-      if (total_force > 0) {
-        // There is a contact at ith segment, we have to
-        // std::cout << i << " " <<
-        // remainder(motor_functions_[i]->GetCurrentPhase(),
-        //                                    chrono::CH_C_PI)
-        //           << std::endl;
-        if (i > 20 & i <= 27) {
-          enable_head_grab_ = true;
-          last_contact_index_ = i;
-          grab_count_down_ = 30;
-          return i;
-        }
-      }
-    }
-    return -1;
-  } else {
-    grab_count_down_--;
-    if (grab_count_down_ <= 0) {
-      enable_head_grab_ = false;
-    }
-    return last_contact_index_;
-  }
+  auto contact_positions = CharacterizeContacts();
 }
-
-// double Controller::GenerateHeadGrabShapeForce() {
-//   // Determine if grab is needed
-//   if (!enable_head_grab_) {
-//     int seg_idx = DetermineGrab();
-//     if (seg_idx >= 24) {
-//       enable_head_grab_ = true;
-//     }
-//     grab_count_down_ = 30;
-//   }
-//
-//   if (enable_head_grab_) {
-//     // double head_phase =
-//     //     motor_functions_[robot_->motors.size() - 1]->GetCurrentPhase();
-//     // std::cout << head_phase << std::endl;
-//     if (grab_count_down_ < 0) {
-//       enable_head_grab_ = false;
-//     }
-//     grab_count_down_--;
-//     return 15;
-//   }
-//   return 0;
-// }
 
 size_t Controller::GetNumMotors() { return robot_->motors.size(); }
 
