@@ -397,19 +397,25 @@ void Controller::ApplyHeadStrategy() {
   if (contact_indices.empty() || contact_indices.size() >= 3) {
     return;
   }
-  size_t head_index = contact_indices.back();
-  if (head_index < 23) {
+  head_index_ = contact_indices.back();
+
+  if (head_index_ < 23 && head_index_ > 28) {
     return;
   }
 
-  for (size_t i = head_index - 5; i < head_index; ++i) {
+  // if (head_strategy_count_down_ == 0) {
+  //   head_strategy_count_down_ = 50;
+  // }
+
+  for (int i = head_index_ - 5; i < head_index_; ++i) {
     // double desired_angle_dt = wave_params_.amplitudes[i] *
     //                           wave_params_.phases_dt[i] *
     //                           cos(wave_params_.phases[i]);
-    // wave_params_.theta_dt[i] += -4 * desired_angle_dt;
-    // slows down the
-    wave_params_.phases_dt[i] -= 10; // * (head_index - 4 - i);
+    // wave_params_.theta_dt[i] -= 4 * desired_angle_dt;
+    // // slows down the
+    wave_params_.phases_dt[i] -= 15;
   }
+  // head_strategy_count_down_--;
 }
 
 void Controller::UpdatePhases(double dt) {
@@ -418,11 +424,14 @@ void Controller::UpdatePhases(double dt) {
     wave_params_.desired_phases[i] += wave_params_.frequency * dt;
     wave_params_.phases_dt[i] = wave_params_.frequency;
   }
+
   ApplyHeadStrategy();
+
   for (size_t i = 0; i < kNumJoints; ++i) {
     wave_params_.phases[i] +=
         wave_params_.phases_dt[i] * dt -
-        0.5 * (wave_params_.phases[i] - wave_params_.desired_phases[i]);
+        // pd damping
+        0.1 * (wave_params_.phases[i] - wave_params_.desired_phases[i]);
   }
 }
 
@@ -452,13 +461,13 @@ void Controller::UpdateAngles(double dt) {
     //                             wave_params_.phases_dt[i] *
     //                             cos(wave_params_.phases[i]);
     //   double error_angle = wave_params_.theta[i] - desired_angle;
-    //   wave_params_.theta_dt[i] = desired_angle_dt - 1.0 * error_angle;
+    //   wave_params_.theta_dt[i] = desired_angle_dt - 0.5 * error_angle;
     // }
     //
     // ApplyHeadStrategy();
     //
     // for (size_t i = 0; i < kNumJoints; ++i) {
-    //   wave_params_.theta[i] += wave_params_.theta_dt[i] * dt;
+    // wave_params_.theta[i] += wave_params_.theta_dt[i] * dt;
   }
 }
 
