@@ -89,7 +89,7 @@ private:
   // group_velocity_;
 
   // motor functions to be adjusted based on the window it belongs to
-  std::vector<chrono::ChSharedPtr<chrono::ChFunctionMotor>> motor_functions_;
+  std::vector<std::shared_ptr<chrono::ChFunctionMotor>> motor_functions_;
   // step count
   size_t steps_ = 0;
 };

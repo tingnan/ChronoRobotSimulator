@@ -33,7 +33,7 @@ void BuildWorld(ChSystem *ch_system, const Json::Value &params) {
         // radius = 0.27;
         // radius = std::max(radius, 0.01);
         radius = 0.03;
-        ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
+        std::shared_ptr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
             radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
         body_ptr->SetBodyFixed(true);
         body_ptr->SetIdentifier(-1);

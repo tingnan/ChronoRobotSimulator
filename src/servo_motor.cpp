@@ -15,14 +15,14 @@ double ChFunctionPID::Get_y(double t) {
   return torque;
 }
 
-void ChServoMotor::Initialize(ChSharedPtr<ChFunction> motor_funct,
+void ChServoMotor::Initialize(std::shared_ptr<ChFunction> motor_funct,
                               ChLinkEngine::eCh_eng_mode mode_flag) {
   motor_mode_ = mode_flag;
   engine_->Set_eng_mode(mode_flag);
   if (mode_flag == ChLinkEngine::ENG_MODE_ROTATION) {
     engine_->Set_rot_funct(motor_funct);
   } else if (mode_flag == ChLinkEngine::ENG_MODE_TORQUE) {
-    ChSharedPtr<ChFunctionPID> torque_funct(
+    std::shared_ptr<ChFunctionPID> torque_funct(
         new ChFunctionPID(motor_funct, engine_));
     engine_->Set_tor_funct(torque_funct);
   }

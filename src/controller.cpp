@@ -67,7 +67,7 @@ Eigen::MatrixXd ChainJacobianDw(const std::vector<double> &link_lengths) {
 }
 
 Eigen::MatrixXd ComputeChainJacobianTailFrame(
-    const std::vector<chrono::ChSharedPtr<chrono::ChBody>> &rigid_bodies,
+    const std::vector<std::shared_ptr<chrono::ChBody>> &rigid_bodies,
     const std::vector<double> &link_lengths) {
   const size_t kNumSegs = rigid_bodies.size();
   Eigen::VectorXd thetas(kNumSegs);
@@ -133,7 +133,7 @@ Eigen::MatrixXd ChainJacobianCoMTransform(const Eigen::MatrixXd &jacobian_dx,
 }
 
 Eigen::MatrixXd ComputeChainJacobianCoMFrame(
-    const std::vector<chrono::ChSharedPtr<chrono::ChBody>> &rigid_bodies,
+    const std::vector<std::shared_ptr<chrono::ChBody>> &rigid_bodies,
     const std::vector<double> &link_lengths) {
   const size_t kNumSegs = rigid_bodies.size();
   Eigen::VectorXd thetas(kNumSegs);
@@ -271,7 +271,7 @@ Eigen::VectorXd Controller::ComputeInternalTorque() {
   const size_t kNJacDim = 3;
   Eigen::VectorXd forces_contact(kNJacDim * kNumSegs);
   contact_reporter_->Reset();
-  ch_system_->GetContactContainer()->ReportAllContacts2(contact_reporter_);
+  ch_system_->GetContactContainer()->ReportAllContacts(contact_reporter_);
   auto reported_forces = contact_reporter_->GetContactForces();
   const size_t kXIdx = 0;
   const size_t kZIdx = 2;
@@ -399,7 +399,7 @@ void Controller::ApplyHeadStrategy() {
   }
   head_index_ = contact_indices.back();
 
-  if (head_index_ < 23 && head_index_ > 28) {
+  if (head_index_ < 23 && head_index_ > 27) {
     return;
   }
 
@@ -481,7 +481,7 @@ void Controller::ApplyWaveParams() {
 
 void Controller::ExtractContactForces() {
   contact_reporter_->Reset();
-  ch_system_->GetContactContainer()->ReportAllContacts2(contact_reporter_);
+  ch_system_->GetContactContainer()->ReportAllContacts(contact_reporter_);
   contact_forces_ = contact_reporter_->GetContactForces();
 }
 

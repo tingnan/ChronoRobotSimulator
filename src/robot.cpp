@@ -68,7 +68,7 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     const double kFriction = 0.0;
     const double kDensity = 5000.0;
 
-    ChSharedPtr<ChBodyEasyBox> ground(new ChBodyEasyBox(
+    std::shared_ptr<ChBodyEasyBox> ground(new ChBodyEasyBox(
         500, 1.0, 500, 1.0, !kEnableCollision, !kEnableVisual));
     ground->SetBodyFixed(true);
     ground->SetPos(ChVector<>(0, -0.5, 0));
@@ -86,17 +86,17 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
     std::uniform_real_distribution<> z_pos_gen(-0.10, 0.10);
 
     ChVector<> center_pos(-kL * 1.0, -kW * 0.5, 1.0);
-    std::vector<ChSharedBodyPtr> body_container_;
+    std::vector<std::shared_ptr<ChBody>> body_container_;
     i_robot.inertia.resize(kNumSegments * 3, kNumSegments * 3);
     i_robot.inertia.setZero();
     for (size_t i = 0; i < kNumSegments; ++i) {
-      ChSharedBodyPtr body_ptr;
+      std::shared_ptr<ChBody> body_ptr;
       if (i == kNumSegments - 1) {
-        body_ptr = ChSharedBodyPtr(new ChBodyEasyCylinder(
+        body_ptr = std::shared_ptr<ChBody>(new ChBodyEasyCylinder(
             kW * 0.5, kW, kDensity, kEnableCollision, kEnableVisual));
         i_robot.link_lengths.push_back(kW);
       } else {
-        body_ptr = ChSharedBodyPtr(new ChBodyEasyBox(
+        body_ptr = std::shared_ptr<ChBody>(new ChBodyEasyBox(
             kLx, kW, kW, kDensity, kEnableCollision, kEnableVisual));
         i_robot.link_lengths.push_back(kLx);
       }
@@ -117,7 +117,7 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
       body_container_.push_back(body_ptr);
       // The engines.
       if (i > 0) {
-        ChSharedPtr<ChLinkEngine> joint_ptr(new ChLinkEngine());
+        std::shared_ptr<ChLinkEngine> joint_ptr(new ChLinkEngine());
         ChVector<> position = center_pos - ChVector<>(0.5 * kLx, 0, 0);
         ChQuaternion<> orientation(Q_from_AngX(CH_C_PI_2));
         joint_ptr->Initialize(body_container_[i], body_container_[i - 1],
@@ -129,7 +129,8 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
 
       if (true) {
         // The joints that maintain the snake in plane.
-        ChSharedPtr<ChLinkLockPlanePlane> inplanelink(new ChLinkLockPlanePlane);
+        std::shared_ptr<ChLinkLockPlanePlane> inplanelink(
+            new ChLinkLockPlanePlane);
         inplanelink->Initialize(
             ground, body_ptr,
             ChCoordsys<>(ChVector<>(), Q_from_AngX(CH_C_PI_2)));
@@ -138,12 +139,12 @@ Robot BuildRobot(chrono::ChSystem *ch_system, const Json::Value &params) {
 
       if (false) {
         // Add a cylinder at the joint.
-        ChSharedPtr<ChBodyEasyCylinder> cylinder_ptr(new ChBodyEasyCylinder(
+        std::shared_ptr<ChBodyEasyCylinder> cylinder_ptr(new ChBodyEasyCylinder(
             kW * 0.5, kW, kDensity, kEnableCollision, kEnableVisual));
         cylinder_ptr->SetPos(center_pos + ChVector<>(kLx * 0.5, 0, 0));
         cylinder_ptr->SetIdentifier(i + 100);
         ch_system->Add(cylinder_ptr);
-        ChSharedPtr<ChLinkLockLock> link(new ChLinkLockLock);
+        std::shared_ptr<ChLinkLockLock> link(new ChLinkLockLock);
         link->Initialize(body_ptr, cylinder_ptr, ChCoordsys<>(VNULL));
         ch_system->Add(link);
       }

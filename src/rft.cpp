@@ -11,7 +11,6 @@
 using chrono::ChSystem;
 using chrono::ChVector;
 using chrono::ChBody;
-
 namespace {
 
 const double kRFTVelocityThreshold = 1e-3;
@@ -71,7 +70,7 @@ bool RFTTestCollision(ChBody *body, const ChVector<> &pdirec, double pdist) {
   return false;
 }
 
-void DrawVector(irr::ChIrrApp *ch_app, const ChVector<> &pos,
+void DrawVector(chrono::irrlicht::ChIrrApp *ch_app, const ChVector<> &pos,
                 const ChVector<> &foc, double scale, int color) {
   irr::video::IVideoDriver *driver = ch_app->GetVideoDriver();
   driver->setTransform(irr::video::ETS_WORLD, irr::core::matrix4());
@@ -223,7 +222,7 @@ std::vector<chrono::ChVector<>> RFTBody::GetTransformedVelocityList() {
 }
 
 // std::ofstream debug_file("debug.txt");
-RFTSystem::RFTSystem(irr::ChIrrApp *ch_app)
+RFTSystem::RFTSystem(chrono::irrlicht::ChIrrApp *ch_app)
     : ydir_(0., 1., 0.), xdir_(1., 0., 0.), ch_app_(ch_app), ffac_(1.) {
   zdir_.Cross(xdir_, ydir_);
   // ChVector<> force;

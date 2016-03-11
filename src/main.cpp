@@ -1,4 +1,5 @@
 #include <chrono_irrlicht/ChIrrApp.h>
+#include <irrlicht.h>
 #include <motion_functions/ChFunction_Sine.h>
 
 #include "include/chrono_io.h"
@@ -40,6 +41,7 @@ Json::Value CreateJsonObject(const char *file) {
 
 using namespace chrono;
 using namespace irr;
+using namespace irrlicht;
 
 class ChBroadPhaseCallbackNew : public collision::ChBroadPhaseCallback {
 public:
@@ -91,7 +93,7 @@ int main(int argc, char *argv[]) {
 
   // create a gui ch_app with the chrono system
   ChIrrApp ch_app(&ch_system, L"snake", core::dimension2d<u32>(800, 800), false,
-                  true, video::EDT_OPENGL);
+                  true);
   ChIrrWizard::add_typical_Logo(ch_app.GetDevice());
   ChIrrWizard::add_typical_Sky(ch_app.GetDevice());
   ChIrrWizard::add_typical_Lights(ch_app.GetDevice());

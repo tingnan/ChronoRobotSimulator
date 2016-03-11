@@ -21,8 +21,8 @@ class Value;
 // The Snake robot
 struct Robot {
   // Core components: rigid bodies and motors
-  std::vector<chrono::ChSharedPtr<chrono::ChBody>> rigid_bodies;
-  std::vector<chrono::ChSharedPtr<chrono::ChServoMotor>> motors;
+  std::vector<std::shared_ptr<chrono::ChBody>> rigid_bodies;
+  std::vector<std::shared_ptr<chrono::ChServoMotor>> motors;
   // To be used with RFT module
   std::vector<RFTBody> rft_bodies;
   // Cached value, to be used by the controller.

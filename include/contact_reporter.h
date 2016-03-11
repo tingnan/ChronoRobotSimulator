@@ -7,16 +7,16 @@
 
 namespace chrono {
 
-class ContactSerializer : public ChReportContactCallback2 {
+class ContactSerializer : public ChReportContactCallback {
 public:
-  virtual bool ReportContactCallback2(const chrono::ChVector<> &point_a,
-                                      const chrono::ChVector<> &point_b,
-                                      const chrono::ChMatrix33<> &plane_coord,
-                                      const double &distance,
-                                      const chrono::ChVector<> &react_forces,
-                                      const chrono::ChVector<> &react_torques,
-                                      chrono::ChContactable *model_a,
-                                      chrono::ChContactable *model_b) {
+  virtual bool ReportContactCallback(const chrono::ChVector<> &point_a,
+                                     const chrono::ChVector<> &point_b,
+                                     const chrono::ChMatrix33<> &plane_coord,
+                                     const double &distance,
+                                     const chrono::ChVector<> &react_forces,
+                                     const chrono::ChVector<> &react_torques,
+                                     chrono::ChContactable *model_a,
+                                     chrono::ChContactable *model_b) {
     ChVector<> contact_normal = plane_coord.Get_A_Xaxis();
 
     ChVector<> contact_force = plane_coord * react_forces;
@@ -30,17 +30,17 @@ public:
   }
 };
 
-class ContactExtractor : public ChReportContactCallback2 {
+class ContactExtractor : public ChReportContactCallback {
 public:
   explicit ContactExtractor(size_t num_bodies) : contact_forces_(num_bodies) {}
-  virtual bool ReportContactCallback2(const chrono::ChVector<> &point_a,
-                                      const chrono::ChVector<> &point_b,
-                                      const chrono::ChMatrix33<> &plane_coord,
-                                      const double &distance,
-                                      const chrono::ChVector<> &react_forces,
-                                      const chrono::ChVector<> &react_torques,
-                                      chrono::ChContactable *model_a,
-                                      chrono::ChContactable *model_b) {
+  virtual bool ReportContactCallback(const chrono::ChVector<> &point_a,
+                                     const chrono::ChVector<> &point_b,
+                                     const chrono::ChMatrix33<> &plane_coord,
+                                     const double &distance,
+                                     const chrono::ChVector<> &react_forces,
+                                     const chrono::ChVector<> &react_torques,
+                                     chrono::ChContactable *model_a,
+                                     chrono::ChContactable *model_b) {
     ChVector<> contact_normal = plane_coord.Get_A_Xaxis();
 
     ChVector<> contact_force = plane_coord * react_forces;

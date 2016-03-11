@@ -14,7 +14,7 @@
 
 using namespace chrono;
 
-void LogBodies(std::vector<chrono::ChSharedPtr<chrono::ChBody>> &body_list,
+void LogBodies(std::vector<std::shared_ptr<chrono::ChBody>> &body_list,
                std::ostream &stream) {
   stream << std::setprecision(8);
   stream << std::scientific;
@@ -32,9 +32,8 @@ void LogBodies(std::vector<chrono::ChSharedPtr<chrono::ChBody>> &body_list,
   stream.flush();
 }
 
-void LogMotors(
-    std::vector<chrono::ChSharedPtr<chrono::ChServoMotor>> &motor_list,
-    std::ostream &stream) {
+void LogMotors(std::vector<std::shared_ptr<chrono::ChServoMotor>> &motor_list,
+               std::ostream &stream) {
   stream << std::setprecision(8);
   stream << std::scientific;
   for (size_t i = 0; i < motor_list.size(); ++i) {
