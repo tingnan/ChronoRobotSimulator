@@ -19,6 +19,7 @@ class ContactExtractor;
 struct WaveParams {
   double wave_speed = 0.05;
   double desired_amplitude = 0.35;
+  double initial_phase = 0.0;
   // the amplitude modifier
   std::vector<double> amplitudes;
   std::vector<double> amplitudes_dt;
@@ -62,7 +63,7 @@ private:
 
   void ExtractContactForces();
   void ApplyHeadStrategy();
-  int head_strategy_count_down_ = -100;
+  int head_strategy_count_down_ = -50;
   int head_index_ = 0;
 
   // Grab and glide control based on torque. First we determine whether to grab.

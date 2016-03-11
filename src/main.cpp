@@ -112,10 +112,8 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
   lattice_params["spacing"] = atof(argv[1]);
-  BuildWorld(ch_app.GetSystem(), lattice_params);
-  Robot i_robot = BuildRobot(ch_app.GetSystem(), Json::Value());
 
-  // Do visual binding.
+  Robot i_robot = BuildRobot(ch_app.GetSystem(), Json::Value());
   ch_app.AssetBindAll();
   ch_app.AssetUpdateAll();
 
@@ -143,6 +141,7 @@ int main(int argc, char *argv[]) {
   Json::Value command_params;
   command_params["num_waves"] = atof(argv[2]);
   command_params["amplitude"] = atof(argv[3]);
+  command_params["initial_phase"] = atof(argv[4]);
   controller.SetDefaultParams(command_params);
   controller.EnablePosMotorControl();
 
@@ -153,12 +152,19 @@ int main(int argc, char *argv[]) {
   // screen capture?
   ch_app.SetVideoframeSave(true);
   ch_app.SetVideoframeSaveInterval(save_step);
+  bool enable_peg = 0;
 
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 100) {
+  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 20) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();
-
+    if (!enable_peg && ch_system.GetChTime() > 2.5) {
+      BuildWorld(ch_app.GetSystem(), lattice_params);
+      // Do visual binding.
+      ch_app.AssetBindAll();
+      ch_app.AssetUpdateAll();
+      enable_peg = true;
+    }
     // io control
     if (count == save_step - 1) {
       ch_app.GetVideoDriver()->beginScene(true, true,

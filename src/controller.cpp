@@ -227,6 +227,7 @@ void Controller::SetDefaultParams(const Json::Value &command) {
   wave_params_.desired_amplitude = command.get("amplitude", 0.5).asDouble();
   wave_params_.frequency = command.get("num_waves", 1.5).asDouble() * 2 *
                            CH_C_2PI * wave_params_.wave_speed;
+  wave_params_.initial_phase = command.get("initial_phase", 0.0).asDouble();
   InitializeWaveParams();
 }
 
@@ -246,7 +247,8 @@ void Controller::InitializeWaveParams() {
   for (int i = kNumJoints - 1; i >= 0; --i) {
     // set a phase lag from head to tail
     wave_params_.desired_phases[i] =
-        -double(kNumJoints - i - 1) * num_waves / kNumJoints * CH_C_2PI;
+        wave_params_.initial_phase -
+        double(kNumJoints - i - 1) * num_waves / kNumJoints * CH_C_2PI;
   }
   // Just copy
   wave_params_.phases = wave_params_.desired_phases;
@@ -393,30 +395,38 @@ void Controller::UpdateAmplitudes(double dt) {
 }
 
 void Controller::ApplyHeadStrategy() {
-  if (head_strategy_count_down_ == -100) {
+  if (head_strategy_count_down_ == -50) {
     auto contact_indices = CharacterizeContacts();
     if (contact_indices.empty() || contact_indices.size() >= 3) {
       return;
     }
     head_index_ = contact_indices.back();
 
-    if (head_index_ < 22 && head_index_ > 27) {
+    if (head_index_ < 23 || head_index_ > 27) {
       return;
     }
 
-    head_strategy_count_down_ = 150;
+    head_strategy_count_down_ = 400;
   }
   if (head_strategy_count_down_ > 0) {
-    for (int i = head_index_ - 5; i < head_index_; ++i) {
-      // double desired_angle_dt = wave_params_.amplitudes[i] *
-      //                           wave_params_.phases_dt[i] *
-      //                           cos(wave_params_.phases[i]);
-      // wave_params_.theta_dt[i] -= 4 * desired_angle_dt;
-      // // slows down the
-      wave_params_.phases_dt[i] -= 15;
+
+    for (int i = 0; i < robot_->motors.size(); ++i) {
+      double desired_angle_dt = wave_params_.amplitudes[i] *
+                                wave_params_.phases_dt[i] *
+                                cos(wave_params_.phases[i]);
+      double force =
+          fabs(wave_params_.theta_dt[i]) < fabs(desired_angle_dt)
+              ? 0.5 * desired_angle_dt *
+                    exp(-(head_index_ - i) * (head_index_ - i) / 45.0)
+              : 0;
+      wave_params_.theta_dt[i] -= force;
+
+      // wave_params_.phases_dt[i] -=
+      //     3.5 * wave_params_.frequency *
+      //     exp(-(head_index_ - i) * (head_index_ - i) / 30.0);
     }
   }
-  if (head_strategy_count_down_ > -100) {
+  if (head_strategy_count_down_ > -50) {
     head_strategy_count_down_--;
   }
 }
@@ -424,25 +434,36 @@ void Controller::ApplyHeadStrategy() {
 void Controller::UpdatePhases(double dt) {
   const size_t kNumJoints = robot_->motors.size();
   for (size_t i = 0; i < kNumJoints; ++i) {
-    wave_params_.desired_phases[i] += wave_params_.frequency * dt;
-    wave_params_.phases_dt[i] = wave_params_.frequency;
-    ;
-  }
-
-  ApplyHeadStrategy();
-
-  for (size_t i = 0; i < kNumJoints; ++i) {
-    double error_phase =
-        wave_params_.phases[i] - wave_params_.desired_phases[i];
-    double error_phase_dt = wave_params_.phases[i] - wave_params_.frequency;
     if (head_strategy_count_down_ > 0) {
-      wave_params_.phases[i] += dt * (wave_params_.phases_dt[i] -
-                                      0.1 * error_phase - 0.1 * error_phase_dt);
+      // wave_params_.phases_dt[i] = wave_params_.frequency;
+      // wave_params_.phases[i] += wave_params_.phases_dt[i] * dt;
+
     } else {
-      wave_params_.phases[i] += dt * (wave_params_.phases_dt[i] -
-                                      0.7 * error_phase - 0.5 * error_phase_dt);
+      wave_params_.phases_dt[i] = wave_params_.frequency;
+      wave_params_.phases[i] += wave_params_.phases_dt[i] * dt;
+      // wave_params_.desired_phases[i] += wave_params_.frequency * dt;
     }
   }
+
+  // ApplyHeadStrategy();
+  //
+  // for (size_t i = 0; i < kNumJoints; ++i) {
+  //   double error_phase =
+  //       wave_params_.phases[i] - wave_params_.desired_phases[i];
+  //   double error_phase_dt = wave_params_.phases_dt[i] -
+  //   wave_params_.frequency;
+  //   if (head_strategy_count_down_ > 0) {
+  //
+  //     wave_params_.phases[i] += dt * (wave_params_.phases_dt[i] -
+  //                                     0.0 * error_phase - 0.0 *
+  //                                     error_phase_dt);
+  //   } else {
+  //     // std::cout << i << " " << error_phase << "\n";
+  //     wave_params_.phases[i] += dt * (wave_params_.phases_dt[i] -
+  //                                     0.7 * error_phase - 0.7 *
+  //                                     error_phase_dt);
+  //   }
+  // }
 }
 
 double DthLateralInhibition(const Eigen::VectorXd &torque, int index) {
@@ -460,24 +481,32 @@ double DthLateralInhibition(const Eigen::VectorXd &torque, int index) {
 void Controller::UpdateAngles(double dt) {
   const size_t kNumJoints = robot_->motors.size();
   for (size_t i = 0; i < kNumJoints; ++i) {
-    wave_params_.theta_dt[i] = wave_params_.amplitudes[i] *
-                               wave_params_.phases_dt[i] *
-                               cos(wave_params_.phases[i]);
-    wave_params_.theta[i] =
+    // wave_params_.theta_dt[i] = wave_params_.amplitudes[i] *
+    //                            wave_params_.phases_dt[i] *
+    //                            cos(wave_params_.phases[i]);
+    // wave_params_.theta[i] =
+    //     wave_params_.amplitudes[i] * sin(wave_params_.phases[i]);
+    double desired_angle =
         wave_params_.amplitudes[i] * sin(wave_params_.phases[i]);
-    //   double desired_angle =
-    //       wave_params_.amplitudes[i] * sin(wave_params_.phases[i]);
-    //   double desired_angle_dt = wave_params_.amplitudes[i] *
-    //                             wave_params_.phases_dt[i] *
-    //                             cos(wave_params_.phases[i]);
-    //   double error_angle = wave_params_.theta[i] - desired_angle;
-    //   wave_params_.theta_dt[i] = desired_angle_dt - 0.5 * error_angle;
-    // }
-    //
-    // ApplyHeadStrategy();
-    //
-    // for (size_t i = 0; i < kNumJoints; ++i) {
-    // wave_params_.theta[i] += wave_params_.theta_dt[i] * dt;
+    double desired_angle_dt = wave_params_.amplitudes[i] *
+                              wave_params_.phases_dt[i] *
+                              cos(wave_params_.phases[i]);
+    double error_angle = wave_params_.theta[i] - desired_angle;
+    double error_angle_dt = wave_params_.theta_dt[i] - desired_angle_dt;
+    if (head_strategy_count_down_ > 0) {
+      wave_params_.theta_dt[i] = 0.1 * error_angle - 0.1 * error_angle_dt;
+    } else {
+      wave_params_.theta_dt[i] =
+          desired_angle_dt - 0.8 * error_angle - 0.8 * error_angle_dt;
+    }
+  }
+
+  ApplyHeadStrategy();
+
+  // std::cout << wave_params_.phases[26] << " " << wave_params_.theta[26]
+  //           << std::endl;
+  for (size_t i = 0; i < kNumJoints; ++i) {
+    wave_params_.theta[i] += wave_params_.theta_dt[i] * dt;
   }
 }
 
