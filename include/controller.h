@@ -62,7 +62,7 @@ private:
 
   void ExtractContactForces();
   void ApplyHeadStrategy();
-  int head_strategy_count_down_ = 0;
+  int head_strategy_count_down_ = -50;
   int head_index_ = 0;
 
   // Grab and glide control based on torque. First we determine whether to grab.

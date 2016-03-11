@@ -23,28 +23,37 @@ void BuildWorld(ChSystem *ch_system, const Json::Value &params) {
     const size_t kGridSize = kGridDist < 0.35 ? 50 : 30;
     const double kHeight = 0.2;
     const double kSigma = 0.08;
+    double radius = 0.03;
+    ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
+        radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
+    body_ptr->SetBodyFixed(true);
+    body_ptr->SetIdentifier(-1);
+    body_ptr->GetMaterialSurface()->SetFriction(kFriction);
+    body_ptr->SetPos(ChVector<>(0, 0, 0));
+    ch_system->Add(body_ptr);
 
-    std::mt19937 generator(1);
-    std::normal_distribution<double> normal_dist_radius(0.0, kSigma);
-
-    for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {
-      for (size_t z_grid = 0; z_grid < kGridSize; ++z_grid) {
-        double radius = fabs(normal_dist_radius(generator));
-        // radius = 0.27;
-        // radius = std::max(radius, 0.01);
-        radius = 0.03;
-        ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
-            radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
-        body_ptr->SetBodyFixed(true);
-        body_ptr->SetIdentifier(-1);
-        body_ptr->GetMaterialSurface()->SetFriction(kFriction);
-        double x_pos = x_grid * kGridDist + 0.0 * normal_dist_radius(generator);
-        double z_pos = z_grid * kGridDist - 0.5 * kGridSize * kGridDist +
-                       0.0 * normal_dist_radius(generator);
-        body_ptr->SetPos(ChVector<>(x_pos, 0, z_pos));
-        ch_system->Add(body_ptr);
-      }
-    }
+    // std::mt19937 generator(1);
+    // std::normal_distribution<double> normal_dist_radius(0.0, kSigma);
+    //
+    // for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {
+    //   for (size_t z_grid = 0; z_grid < kGridSize; ++z_grid) {
+    //     double radius = fabs(normal_dist_radius(generator));
+    //     // radius = 0.27;
+    //     // radius = std::max(radius, 0.01);
+    //     radius = 0.03;
+    //     ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
+    //         radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
+    //     body_ptr->SetBodyFixed(true);
+    //     body_ptr->SetIdentifier(-1);
+    //     body_ptr->GetMaterialSurface()->SetFriction(kFriction);
+    //     double x_pos = x_grid * kGridDist + 0.0 *
+    //     normal_dist_radius(generator);
+    //     double z_pos = z_grid * kGridDist - 0.5 * kGridSize * kGridDist +
+    //                    0.0 * normal_dist_radius(generator);
+    //     body_ptr->SetPos(ChVector<>(x_pos, 0, z_pos));
+    //     ch_system->Add(body_ptr);
+    //   }
+    // }
   }
 
   // if (false) {
