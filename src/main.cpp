@@ -1,4 +1,5 @@
 #include <chrono_irrlicht/ChIrrApp.h>
+#include <irrlicht.h>
 #include <motion_functions/ChFunction_Sine.h>
 
 #include "include/chrono_io.h"
@@ -40,6 +41,7 @@ Json::Value CreateJsonObject(const char *file) {
 
 using namespace chrono;
 using namespace irr;
+using namespace irrlicht;
 
 class ChBroadPhaseCallbackNew : public collision::ChBroadPhaseCallback {
 public:
@@ -91,7 +93,7 @@ int main(int argc, char *argv[]) {
 
   // create a gui ch_app with the chrono system
   ChIrrApp ch_app(&ch_system, L"snake", core::dimension2d<u32>(800, 800), false,
-                  true, video::EDT_OPENGL);
+                  true);
   ChIrrWizard::add_typical_Logo(ch_app.GetDevice());
   ChIrrWizard::add_typical_Sky(ch_app.GetDevice());
   ChIrrWizard::add_typical_Lights(ch_app.GetDevice());
@@ -110,10 +112,9 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
   lattice_params["spacing"] = atof(argv[1]);
-  BuildWorld(ch_app.GetSystem(), lattice_params);
-  Robot i_robot = BuildRobot(ch_app.GetSystem(), Json::Value());
-
-  // Do visual binding.
+  Json::Value robot_params;
+  robot_params["initial_position"] = atof(argv[4]);
+  Robot i_robot = BuildRobot(ch_app.GetSystem(), robot_params);
   ch_app.AssetBindAll();
   ch_app.AssetUpdateAll();
 
@@ -141,6 +142,7 @@ int main(int argc, char *argv[]) {
   Json::Value command_params;
   command_params["num_waves"] = atof(argv[2]);
   command_params["amplitude"] = atof(argv[3]);
+
   controller.SetDefaultParams(command_params);
   controller.EnablePosMotorControl();
 
@@ -151,14 +153,28 @@ int main(int argc, char *argv[]) {
   // screen capture?
   ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
-
-  while (ch_app.GetDevice()->run() && ch_system.GetChTime() < 100) {
+  bool enable_peg = 0;
+  double initial_phase = controller.GetPhase(0);
+  bool has_contact = false;
+  while (ch_app.GetDevice()->run() &&
+         initial_phase + 1.05 * chrono::CH_C_2PI > controller.GetPhase(0)) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();
-
+    if (!enable_peg && ch_system.GetChTime() > 2.5) {
+      BuildWorld(ch_app.GetSystem(), lattice_params);
+      // Do visual binding.
+      ch_app.AssetBindAll();
+      ch_app.AssetUpdateAll();
+      enable_peg = true;
+    }
     // io control
     if (count == save_step - 1) {
+      if (has_contact == false && controller.HasContact() == true) {
+        has_contact = true;
+        initial_phase = controller.GetPhase(0);
+      }
+
       ch_app.GetVideoDriver()->beginScene(true, true,
                                           video::SColor(255, 140, 161, 192));
       ch_app.DrawAll();

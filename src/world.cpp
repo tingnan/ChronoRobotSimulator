@@ -23,9 +23,9 @@ void BuildWorld(ChSystem *ch_system, const Json::Value &params) {
     const size_t kGridSize = kGridDist < 0.35 ? 50 : 30;
     const double kHeight = 0.2;
     const double kSigma = 0.08;
-    double radius = 0.03;
-    ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
-        radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
+    const double kRadius = 0.03;
+    std::shared_ptr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
+        kRadius, kHeight, kDensity, kEnableCollision, kEnableVisual));
     body_ptr->SetBodyFixed(true);
     body_ptr->SetIdentifier(-1);
     body_ptr->GetMaterialSurface()->SetFriction(kFriction);
@@ -34,14 +34,12 @@ void BuildWorld(ChSystem *ch_system, const Json::Value &params) {
 
     // std::mt19937 generator(1);
     // std::normal_distribution<double> normal_dist_radius(0.0, kSigma);
-    //
     // for (size_t x_grid = 0; x_grid < kGridSize; ++x_grid) {
     //   for (size_t z_grid = 0; z_grid < kGridSize; ++z_grid) {
     //     double radius = fabs(normal_dist_radius(generator));
     //     // radius = 0.27;
     //     // radius = std::max(radius, 0.01);
     //     radius = 0.03;
-    //     ChSharedPtr<ChBodyEasyCylinder> body_ptr(new ChBodyEasyCylinder(
     //         radius, kHeight, kDensity, kEnableCollision, kEnableVisual));
     //     body_ptr->SetBodyFixed(true);
     //     body_ptr->SetIdentifier(-1);

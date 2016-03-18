@@ -2,16 +2,14 @@
 #define INCLUDE_RFT_H_
 
 #include "include/vector_utility.h"
+#include <chrono_irrlicht/ChIrrApp.h>
 #include <physics/ChBody.h>
+
 #include <vector>
 
 namespace chrono {
 class ChSystem;
 class ChBody;
-}
-
-namespace irr {
-class ChIrrApp;
 }
 
 struct RFTMesh {
@@ -40,7 +38,7 @@ struct RFTBody {
 
 class RFTSystem {
 public:
-  RFTSystem(irr::ChIrrApp *ch_app);
+  RFTSystem(chrono::irrlicht::ChIrrApp *ch_app);
   void InteractExt(RFTBody &body);
   void AddHeadDrag(RFTBody &body);
 
@@ -58,7 +56,7 @@ private:
   chrono::ChVector<> ydir_;
   chrono::ChVector<> xdir_;
   chrono::ChVector<> zdir_;
-  irr::ChIrrApp *ch_app_;
+  chrono::irrlicht::ChIrrApp *ch_app_;
   double ffac_;
 };
 

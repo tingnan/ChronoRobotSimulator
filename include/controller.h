@@ -19,6 +19,7 @@ class ContactExtractor;
 struct WaveParams {
   double wave_speed = 0.05;
   double desired_amplitude = 0.35;
+  double initial_phase = 0.0;
   // the amplitude modifier
   std::vector<double> amplitudes;
   std::vector<double> amplitudes_dt;
@@ -39,9 +40,10 @@ public:
   Controller(chrono::ChSystem *ch_system, class Robot *i_robot);
   // Step the controller
   void Step(double dt);
-  // get the toruqe for joint i
   size_t GetNumMotors();
-
+  // Get the phase of i_th motor;
+  double GetPhase(size_t i);
+  bool HasContact();
   // The PID based positio control
   void EnablePIDMotorControl();
   // The "perfect" control
@@ -64,7 +66,7 @@ private:
   void ApplyHeadStrategy();
   int head_strategy_count_down_ = -50;
   int head_index_ = 0;
-
+  bool has_contact_ = false;
   // Grab and glide control based on torque. First we determine whether to grab.
   std::vector<size_t> CharacterizeContacts();
 
@@ -89,7 +91,7 @@ private:
   // group_velocity_;
 
   // motor functions to be adjusted based on the window it belongs to
-  std::vector<chrono::ChSharedPtr<chrono::ChFunctionMotor>> motor_functions_;
+  std::vector<std::shared_ptr<chrono::ChFunctionMotor>> motor_functions_;
   // step count
   size_t steps_ = 0;
 };
