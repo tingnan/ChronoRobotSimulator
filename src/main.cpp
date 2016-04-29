@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();
-    if (!enable_peg && ch_system.GetChTime() > 2.5) {
+    if (!enable_peg && ch_system.GetChTime() > 5.0) {
       BuildWorld(ch_app.GetSystem(), lattice_params);
       // Do visual binding.
       ch_app.AssetBindAll();

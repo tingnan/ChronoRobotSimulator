@@ -375,7 +375,7 @@ void Controller::UpdateAngles(double dt) {
     }
   }
 
-  // ApplyHeadStrategy();
+  ApplyHeadStrategy();
 
   for (size_t i = 0; i < kNumJoints; ++i) {
     wave_params_.theta[i] += wave_params_.theta_dt[i] * dt;
