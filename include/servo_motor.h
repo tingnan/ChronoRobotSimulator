@@ -16,12 +16,10 @@ public:
                 std::shared_ptr<ChLinkEngine> engine)
       : motor_funct_(motor_funct), engine_(engine) {}
   ~ChFunctionPID() {}
-  ChFunction *new_Duplicate() {
-    return new ChFunctionPID(motor_funct_, engine_);
-  }
+  ChFunction *Clone() const { return new ChFunctionPID(motor_funct_, engine_); }
   int Get_Type() { return 9527; }
-  double Get_y(double curr_t);
-  double Get_y_dx(double curr_t) { return 0; }
+  double Get_y(double curr_t) const;
+  double Get_y_dx(double curr_t) const { return 0; }
 
 protected:
   double p_gain_ = 3.50;

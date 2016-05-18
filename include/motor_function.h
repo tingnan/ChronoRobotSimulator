@@ -10,10 +10,10 @@ class ChFunctionMotor : public ChFunction {
 public:
   ChFunctionMotor(double y, double y_dt) : y_(y), y_dt_(y_dt) {}
   ~ChFunctionMotor() {}
-  ChFunction *new_Duplicate() { return new ChFunctionMotor(y_, y_dt_); }
+  ChFunction *Clone() const { return new ChFunctionMotor(y_, y_dt_); }
   int Get_Type() { return 8607; }
-  double Get_y(double t) { return y_; }
-  double Get_y_dx(double t) { return y_dt_; }
+  double Get_y(double t) const { return y_; }
+  double Get_y_dx(double t) const { return y_dt_; }
   void SetAngle(double th) { y_ = th; }
   void SetAngleDt(double th_dt) { y_dt_ = th_dt; }
 

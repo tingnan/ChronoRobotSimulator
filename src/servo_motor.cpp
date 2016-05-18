@@ -2,12 +2,12 @@
 
 using namespace chrono;
 
-double ChFunctionPID::Get_y(double t) {
+double ChFunctionPID::Get_y(double t) const {
   double desired_angle = motor_funct_->Get_y(t);
   double desired_angular_speed = motor_funct_->Get_y_dx(t);
   double curr_angle = engine_->Get_mot_rot();
   double curr_angular_speed = engine_->Get_mot_rot_dt();
-  cum_error_ += desired_angle - curr_angle;
+  // cum_error_ += desired_angle - curr_angle;
   double torque = p_gain_ * (desired_angle - curr_angle) +
                   d_gain_ * (desired_angular_speed - curr_angular_speed) +
                   cum_error_ * i_gain_;

@@ -445,8 +445,6 @@ void Controller::Step(double dt) {
   ApplyWaveParams();
   // Propagate the windows from head to tail
   PropagateWaveParams(dt);
-
-  // auto contact_positions = CharacterizeContacts();
 }
 
 size_t Controller::GetNumMotors() { return robot_->motors.size(); }

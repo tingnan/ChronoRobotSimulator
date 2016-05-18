@@ -83,8 +83,8 @@ int main(int argc, char *argv[]) {
   // Create a ChronoENGINE physical system
   ChSystem ch_system;
   SetChronoDataPath("/usr/local/chrono/data/");
-  ch_system.SetIterLCPmaxItersSpeed(30);
-  ch_system.SetIterLCPmaxItersStab(30);
+  ch_system.SetMaxItersSolverSpeed(30);
+  ch_system.SetMaxItersSolverStab(30);
   // ch_system.SetLcpSolverType(ChSystem::LCP_ITERATIVE_SYMMSOR);
   ch_system.SetTol(1e-6);
   ch_system.Set_G_acc(ChVector<>(0, 0, 0));
