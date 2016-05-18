@@ -16,20 +16,23 @@ namespace chrono {
 class ContactExtractor;
 }
 
-struct WaveWindow {
-  // The starting joint index of the window, allowing negative value.
-  int window_start;
-  // The span of the window, which is always assumed to be a half wave length.
-  int window_width;
-  // The window wave parameters
-  double amplitude;
+struct WaveParams {
+  double wave_speed = 0.05;
+  double desired_amplitude = 0.35;
+  double initial_phase = 0.0;
   // the amplitude modifier
-  std::vector<double> amp_modifiers;
-  std::vector<double> amp_modifiers_dt;
-  // The temporal frequency is not a independent parameter. Once the wave group
-  // speed is determined the temporal frequency is extracted from the width of
-  // the window.
-  double frequency;
+  std::vector<double> amplitudes;
+  std::vector<double> amplitudes_dt;
+  // The temporal frequency and number of waves are dependent. Once the wave
+  // group speed is determined the number of waves are extracted.
+  // Suppose we use 1.5 waves along the body
+  double frequency = 2 * chrono::CH_C_2PI * wave_speed * 1.5;
+  std::vector<double> phases;
+  std::vector<double> phases_dt;
+  std::vector<double> desired_phases;
+
+  std::vector<double> theta;
+  std::vector<double> theta_dt;
 };
 
 class Controller {
@@ -37,9 +40,10 @@ public:
   Controller(chrono::ChSystem *ch_system, class Robot *i_robot);
   // Step the controller
   void Step(double dt);
-  // get the toruqe for joint i
   size_t GetNumMotors();
-
+  // Get the phase of i_th motor;
+  double GetPhase(size_t i);
+  bool HasContact();
   // The PID based positio control
   void EnablePIDMotorControl();
   // The "perfect" control
@@ -49,24 +53,22 @@ public:
 
 private:
   // Generate a new window, maybe taken from the recycled window
-  WaveWindow GenerateDefaultWindow();
-  WaveWindow GenerateWindow();
-  // Initialize a window coverage
-  void InitializeWindows();
-  // Propagate window
-  void PropagateWindows(double dt);
-  // Update window params using the compliance params
-  void UpdateWindowParams(double dt);
+  void InitializeWaveParams();
+  // Update wave params using the compliance params
+  void UpdateAmplitudes(double dt);
+  void UpdatePhases(double dt);
+  void UpdateAngles(double dt);
   // Apply window params to motor functions
-  void ApplyWindowParams();
+  void PropagateWaveParams(double dt);
+  void ApplyWaveParams();
 
+  void ExtractContactForces();
+  void ApplyHeadStrategy();
+  int head_strategy_count_down_ = -50;
+  int head_index_ = 0;
+  bool has_contact_ = false;
   // Grab and glide control based on torque. First we determine whether to grab.
-  int DetermineContactPosition();
-
-  // The parameter to indicate whether or not to grab
-  bool enable_head_grab_ = false;
-  int last_contact_index_ = -1;
-  int grab_count_down_;
+  std::vector<size_t> CharacterizeContacts();
 
   // The torques at each joint contributed from the contact force and/or media
   // resistance.
@@ -78,19 +80,18 @@ private:
 
   // Contact force on each of the robot segment.
   chrono::ContactExtractor *contact_reporter_;
+  std::vector<chrono::ChVector<>> contact_forces_;
 
+  WaveParams wave_params_;
   // Parameters for the position control.
-  double default_amplitude_ = 0.40;
-  double default_frequency_ = 0.20 * chrono::CH_C_2PI;
-  double group_velocity_ = 0.10;
-  double num_waves_ = default_frequency_ / chrono::CH_C_2PI / group_velocity_;
+  // double default_amplitude_ = 0.40;
+  // double default_frequency_ = 0.20 * chrono::CH_C_2PI;
+  // double group_velocity_ = 0.05;
+  // double num_waves_ = default_frequency_ / chrono::CH_C_2PI /
+  // group_velocity_;
 
-  // Buffers for wave windows.
-  std::list<WaveWindow> wave_windows_;
-  // Recycled wave windows
-  std::list<WaveWindow> past_windows_;
   // motor functions to be adjusted based on the window it belongs to
-  std::vector<chrono::ChSharedPtr<chrono::ChFunctionMotor>> motor_functions_;
+  std::vector<std::shared_ptr<chrono::ChFunctionMotor>> motor_functions_;
   // step count
   size_t steps_ = 0;
 };

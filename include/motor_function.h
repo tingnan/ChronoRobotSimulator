@@ -8,28 +8,18 @@ namespace chrono {
 // A nonlinear phased based sinusoidal function
 class ChFunctionMotor : public ChFunction {
 public:
-  ChFunctionMotor(double amp, double freq, double initial_phase)
-      : amplitude_(amp), frequency_(freq), cumulated_phase_(initial_phase) {}
+  ChFunctionMotor(double y, double y_dt) : y_(y), y_dt_(y_dt) {}
   ~ChFunctionMotor() {}
-  ChFunction *new_Duplicate() {
-    return new ChFunctionMotor(amplitude_, frequency_, cumulated_phase_);
-  }
+  ChFunction *new_Duplicate() { return new ChFunctionMotor(y_, y_dt_); }
   int Get_Type() { return 8607; }
-  void Step(double dt) { cumulated_phase_ += frequency_ * dt; }
-  double Get_y(double t) { return amplitude_ * sin(cumulated_phase_); }
-  double Get_y_dx(double t) {
-    return amplitude_ * frequency_ * cos(cumulated_phase_);
-  }
-  void SetAmplitude(double amp) { amplitude_ = amp; }
-  void SetFrequency(double freq) { frequency_ = freq; };
-  double GetAmplitude() { return amplitude_; }
-  double GetFrequency() { return frequency_; }
-  double GetCurrentPhase() { return cumulated_phase_; }
+  double Get_y(double t) { return y_; }
+  double Get_y_dx(double t) { return y_dt_; }
+  void SetAngle(double th) { y_ = th; }
+  void SetAngleDt(double th_dt) { y_dt_ = th_dt; }
 
 protected:
-  double amplitude_ = 0;
-  double frequency_ = 0;
-  double cumulated_phase_ = 0;
+  double y_;
+  double y_dt_;
 };
 
 } // namespace chrono

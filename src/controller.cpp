@@ -67,7 +67,7 @@ Eigen::MatrixXd ChainJacobianDw(const std::vector<double> &link_lengths) {
 }
 
 Eigen::MatrixXd ComputeChainJacobianTailFrame(
-    const std::vector<chrono::ChSharedPtr<chrono::ChBody>> &rigid_bodies,
+    const std::vector<std::shared_ptr<chrono::ChBody>> &rigid_bodies,
     const std::vector<double> &link_lengths) {
   const size_t kNumSegs = rigid_bodies.size();
   Eigen::VectorXd thetas(kNumSegs);
@@ -133,7 +133,7 @@ Eigen::MatrixXd ChainJacobianCoMTransform(const Eigen::MatrixXd &jacobian_dx,
 }
 
 Eigen::MatrixXd ComputeChainJacobianCoMFrame(
-    const std::vector<chrono::ChSharedPtr<chrono::ChBody>> &rigid_bodies,
+    const std::vector<std::shared_ptr<chrono::ChBody>> &rigid_bodies,
     const std::vector<double> &link_lengths) {
   const size_t kNumSegs = rigid_bodies.size();
   Eigen::VectorXd thetas(kNumSegs);
@@ -197,19 +197,19 @@ Eigen::VectorXd SolveChainInternalTorque(const Eigen::MatrixXd &inertia,
   return interal_torques;
 }
 
-void ShiftArray(Eigen::VectorXd &array, double default_value, bool forward) {
+void ShiftArray(std::vector<double> array, double default_value, bool forward) {
   // if shift from beginning to end
-  size_t kArrayLength = array.rows();
+  size_t kArrayLength = array.size();
   if (forward) {
     for (size_t i = 0; i < kArrayLength - 1; ++i) {
-      array(i + 1) = array(i);
+      array[i + 1] = array[i];
     }
-    array(0) = default_value;
+    array[0] = default_value;
   } else {
     for (size_t i = 0; i < kArrayLength - 1; ++i) {
-      array(i) = array(i + 1);
+      array[i] = array[i + 1];
     }
-    array(kArrayLength - 1) = default_value;
+    array[kArrayLength - 1] = default_value;
   }
 }
 
@@ -220,13 +220,52 @@ using namespace chrono;
 Controller::Controller(chrono::ChSystem *ch_system, Robot *i_robot)
     : ch_system_(ch_system), robot_(i_robot) {
   contact_reporter_ = new ContactExtractor(robot_->rigid_bodies.size());
-  InitializeWindows();
+  InitializeWaveParams();
 }
 
 void Controller::SetDefaultParams(const Json::Value &command) {
-  num_waves_ = 0.5 / command.get("duration", 0.25).asDouble();
-  default_amplitude_ = command.get("amplitude", 0.5).asDouble();
-  InitializeWindows();
+  wave_params_.desired_amplitude = command.get("amplitude", 0.5).asDouble();
+  wave_params_.frequency = command.get("num_waves", 1.5).asDouble() * CH_C_2PI *
+                           wave_params_.wave_speed;
+  wave_params_.initial_phase = command.get("initial_phase", 0.0).asDouble();
+  InitializeWaveParams();
+}
+
+void Controller::InitializeWaveParams() {
+  const double kNumJoints = robot_->motors.size();
+  wave_params_.amplitudes.resize(kNumJoints);
+  for (auto &amp : wave_params_.amplitudes) {
+    amp = wave_params_.desired_amplitude;
+  }
+  wave_params_.amplitudes_dt.resize(kNumJoints);
+  for (auto &amp_dt : wave_params_.amplitudes_dt) {
+    amp_dt = 0;
+  }
+  wave_params_.desired_phases.resize(kNumJoints);
+  double num_waves =
+      wave_params_.frequency / (CH_C_2PI * wave_params_.wave_speed);
+  for (int i = kNumJoints - 1; i >= 0; --i) {
+    // set a phase lag from head to tail
+    wave_params_.desired_phases[i] =
+        wave_params_.initial_phase -
+        double(kNumJoints - i - 1) * num_waves / kNumJoints * CH_C_2PI;
+  }
+  // Just copy
+  wave_params_.phases = wave_params_.desired_phases;
+  wave_params_.phases_dt.resize(kNumJoints);
+  for (auto &ph_dt : wave_params_.phases_dt) {
+    ph_dt = wave_params_.frequency;
+  }
+
+  wave_params_.theta.resize(kNumJoints);
+  wave_params_.theta_dt.resize(kNumJoints);
+  for (size_t i = 0; i < kNumJoints; ++i) {
+    wave_params_.theta[i] =
+        wave_params_.amplitudes[i] * sin(wave_params_.phases[i]);
+    wave_params_.theta_dt[i] = wave_params_.amplitudes[i] *
+                               wave_params_.phases_dt[i] *
+                               cos(wave_params_.phases[i]);
+  }
 }
 
 Eigen::VectorXd Controller::ComputeInternalTorque() {
@@ -234,7 +273,7 @@ Eigen::VectorXd Controller::ComputeInternalTorque() {
   const size_t kNJacDim = 3;
   Eigen::VectorXd forces_contact(kNJacDim * kNumSegs);
   contact_reporter_->Reset();
-  ch_system_->GetContactContainer()->ReportAllContacts2(contact_reporter_);
+  ch_system_->GetContactContainer()->ReportAllContacts(contact_reporter_);
   auto reported_forces = contact_reporter_->GetContactForces();
   const size_t kXIdx = 0;
   const size_t kZIdx = 2;
@@ -263,325 +302,172 @@ Eigen::VectorXd Controller::ComputeInternalTorque() {
   return torque_int;
 }
 
-// std::list<double> EstimateMeanAmps(const std::list<WaveWindow> &wave_windows)
-// {
-//   std::list<double> average_amps;
-//   average_amps.resize(0);
-//   for (auto &window : wave_windows) {
-//     double load = 0;
-//     for (auto amp : window.amp_history) {
-//       load += amp;
-//     }
-//     if (window.amp_history.size() > 0)
-//       average_amps.push_back(load / window.amp_history.size());
-//     else {
-//       average_amps.push_back(0);
-//     }
-//   }
-//   return average_amps;
-// }
+void Controller::PropagateWaveParams(double dt) {}
 
-// double CalculateStandardDeviation(const std::list<double> &average_amps,
-//                                   double mean_value) {
-//
-//   double std_val = 0;
-//   for (auto amp_modifer : average_amps) {
-//     std_val += (amp_modifer - mean_value) * (amp_modifer - mean_value);
-//   }
-//   std_val = sqrt(std_val / average_amps.size());
-//   // double std_val = 0;
-//   // for (auto amp_modifer : average_amps) {
-//   //   std_val = std::max((amp_modifer - mean_value) * (amp_modifer -
-//   //   mean_value),
-//   //                      std_val);
-//   // }
-//
-//   return std_val;
-// }
+double Controller::GetPhase(size_t i) { return wave_params_.phases[i]; }
 
-// double EmpiricalWindowWidth(double std_amp_modifier) {
-//   const double kMaxSTDModifier = 0.5;
-//   std_amp_modifier = std::min(kMaxSTDModifier, std_amp_modifier);
-//   return (0.18 - 0.4) / kMaxSTDModifier * std_amp_modifier + 0.4;
-// }
+bool Controller::HasContact() { return has_contact_; }
 
-// // The function is called only once when at propagation of windows
-// WaveWindow Controller::GenerateWindow() {
-//   // Estimate curvature history for all windows
-//   auto average_amps = EstimateMeanAmps(wave_windows_);
-//   double std_amp_modifier = CalculateStandardDeviation(average_amps, 1.0);
-//   // chrono::CH_C_PI * group_velocity_ / frequency * kNumJoints == width;
-//
-//   WaveWindow new_window;
-//   new_window.amp_modifier = 1;
-//   // Start at head
-//   const size_t kNumJoints = robot_->motors.size();
-//   new_window.window_start = kNumJoints - 1;
-//   new_window.window_width =
-//       std::max(ceil(kNumJoints * EmpiricalWindowWidth(std_amp_modifier)),
-//       1.0);
-//   const double kOptimalRelCurv = 6.0;
-//   new_window.amplitude = kOptimalRelCurv / new_window.window_width / 2;
-//   new_window.frequency =
-//       chrono::CH_C_PI * group_velocity_ / new_window.window_width *
-//       kNumJoints;
-//   std::cout << new_window.window_width << ":" << new_window.frequency
-//             << std::endl;
-//   return new_window;
-// }
-
-WaveWindow Controller::GenerateDefaultWindow() {
-  WaveWindow default_window;
-  default_window.amplitude = default_amplitude_;
-  default_window.frequency = default_frequency_;
-  // Start at head
-  const size_t kNumJoints = robot_->motors.size();
-  default_window.window_start = kNumJoints - 1;
-  default_window.window_width = 5;
-  // std::max(ceil(kNumJoints / num_waves_ / 2), 1.0);
-  default_window.amp_modifiers.resize(default_window.window_width);
-  default_window.amp_modifiers_dt.resize(default_window.window_width);
-  for (auto &modifer : default_window.amp_modifiers) {
-    modifer = default_window.amplitude;
-  }
-
-  for (auto &modifer_dt : default_window.amp_modifiers_dt) {
-    modifer_dt = 0.0;
-  }
-
-  return default_window;
-}
-
-void Controller::InitializeWindows() {
-  // Initialize all wave windows using the default params
-  wave_windows_.resize(0);
-  wave_windows_.emplace_front(GenerateDefaultWindow());
-  auto last_window = wave_windows_.begin();
-  while (last_window->window_start >= 0) {
-    wave_windows_.emplace_front(GenerateDefaultWindow());
-    wave_windows_.front().window_start =
-        last_window->window_start - wave_windows_.front().window_width;
-    last_window = wave_windows_.begin();
-  }
-}
-
-void PrintAllWindows(const std::list<WaveWindow> &windows) {
-  for (auto &window : windows) {
-    std::cout << window.window_start << ":"
-              << window.window_start + window.window_width - 1 << ":"
-              << window.amp_modifiers[0] << ",";
-  }
-  std::cout << std::endl;
-}
-
-void Controller::PropagateWindows(double dt) {
-  // The function move windows backwards
-  const size_t kNumJoints = robot_->motors.size();
-  const size_t kPropagationInterval = (1. / group_velocity_) / kNumJoints / dt;
-  if (steps_ % kPropagationInterval == 0) {
-    // We need at least 1 window
-    assert(wave_windows_.size() > 0);
-    // iterate through windows and shift the index
-    for (auto &window : wave_windows_) {
-      window.window_start--;
-    }
-    // Check the first window in the list for coverage. If a window moves out of
-    // the snake body (s + w - 1 < 0), we recycle it
-    auto &front_window = wave_windows_.front();
-    if (front_window.window_start + int(front_window.window_width) - 1 < 0) {
-      // past_windows_.emplace_back(front_window);
-      wave_windows_.pop_front();
-    }
-
-    // Now check for coverage: is it necessary to append another window to the
-    // back of the list? Notice that the list may have been changed!
-    if (wave_windows_.size() == 0) {
-      // This happens when there is only 1 joint along the body
-      wave_windows_.emplace_back(GenerateDefaultWindow());
-    }
-    // back() function is undefined if the list is empty
-    if (wave_windows_.back().window_start + wave_windows_.back().window_width <
-        kNumJoints) {
-      wave_windows_.emplace_back(GenerateDefaultWindow());
-    }
-    PrintAllWindows(wave_windows_);
-  }
-}
-
-void Controller::UpdateWindowParams(double dt) {
+void Controller::UpdateAmplitudes(double dt) {
   // Compute the contact induced torques at each joint
   auto torque_int = ComputeInternalTorque();
   const size_t kNumJoints = robot_->motors.size();
-  int contact_index = DetermineContactPosition();
-  for (auto &window : wave_windows_) {
-    // Compute the range of motors the window contains
-    int beg = std::max(window.window_start, 0);
-    int end =
-        std::min(window.window_start + window.window_width, int(kNumJoints));
-    double shape_force = 0;
-    for (size_t i = beg; i < end; ++i) {
-      // The jacobian mapping
-      shape_force -= robot_->motors[i]->GetMotorRotation() * torque_int(i);
-    }
-
-    for (size_t i = 0; i < window.amp_modifiers.size(); ++i) {
-      int curr_motor_id = i + beg;
-      if (curr_motor_id >= end) {
-        continue;
-      }
-      // robot_->motors[curr_motor_id]->GetMotorRotation()
-      double jnt_shape_force = shape_force;
-      // std::cout << jnt_shape_force << std::endl;
-      // if (contact_index - curr_motor_id >= 0 &&
-      //     contact_index - curr_motor_id <= 15) {
-      //   jnt_shape_force = -jnt_shape_force;
-      // }
-      //
-      // Clamp the force
-      const double kMaxShapeForce = 20.0;
-      jnt_shape_force =
-          std::max(std::min(jnt_shape_force, kMaxShapeForce), -kMaxShapeForce);
-      // save the load history into its history queue
-      // std::cout << jnt_shape_force << "\n";
-      const double kDmp = 2.0;
-      const double kSpr = 2.0;
-      const double kMas = 1.0;
-      double amp_modifier_ddt =
-          (jnt_shape_force - window.amp_modifiers_dt[i] * kDmp -
-           kSpr * (window.amp_modifiers[i] - window.amplitude)) /
-          kMas;
-      window.amp_modifiers_dt[i] += amp_modifier_ddt * dt;
-      window.amp_modifiers[i] += window.amp_modifiers_dt[i] * dt;
-      const double kMaxRelCurvature = 12;
-      double max_amp = kMaxRelCurvature / window.window_width / 2;
-      window.amp_modifiers[i] =
-          std::max(std::min(window.amp_modifiers[i], max_amp), 0.0);
-    }
-  }
-  // std::cout << std::endl;
 }
 
-void Controller::ApplyWindowParams() {
+void Controller::UpdatePhases(double dt) {
   const size_t kNumJoints = robot_->motors.size();
-  for (auto &window : wave_windows_) {
-    // Compute the range of motors the window contains
-    int beg = std::max(window.window_start, 0);
-    int end =
-        std::min(window.window_start + window.window_width, int(kNumJoints));
-    size_t j = 0;
-    for (size_t i = beg; i < end; ++i) {
-      // Apply the window params to the joint motor functions.
-      motor_functions_[i]->SetAmplitude(window.amp_modifiers[j]);
-      motor_functions_[i]->SetFrequency(window.frequency);
-      j = j + 1;
+  for (size_t i = 0; i < kNumJoints; ++i) {
+    if (head_strategy_count_down_ > 0) {
+
+    } else {
+      wave_params_.phases_dt[i] = wave_params_.frequency;
+      wave_params_.phases[i] += wave_params_.phases_dt[i] * dt;
     }
   }
+}
+
+void Controller::ApplyHeadStrategy() {
+  if (head_strategy_count_down_ == -50) {
+    auto contact_indices = CharacterizeContacts();
+    if (contact_indices.empty() || contact_indices.size() >= 3) {
+      return;
+    }
+    head_index_ = contact_indices.back();
+    if (head_index_ < 22 || head_index_ > 27) {
+      return;
+    }
+    head_strategy_count_down_ = 100;
+  }
+
+  if (head_strategy_count_down_ > 0) {
+    std::cout << head_strategy_count_down_ << std::endl;
+    for (int i = 0; i < robot_->motors.size(); ++i) {
+      double desired_angle_dt = wave_params_.amplitudes[i] *
+                                wave_params_.phases_dt[i] *
+                                cos(wave_params_.phases[i]);
+      wave_params_.theta_dt[i] -=
+          5 * desired_angle_dt *
+          exp(-(i - head_index_) * (i - head_index_) / 15.0);
+    }
+  }
+  //
+  if (head_strategy_count_down_ > -50) {
+    head_strategy_count_down_--;
+  }
+}
+
+void Controller::UpdateAngles(double dt) {
+  const size_t kNumJoints = robot_->motors.size();
+  for (size_t i = 0; i < kNumJoints; ++i) {
+
+    double desired_angle =
+        wave_params_.amplitudes[i] * sin(wave_params_.phases[i]);
+    double desired_angle_dt = wave_params_.amplitudes[i] *
+                              wave_params_.phases_dt[i] *
+                              cos(wave_params_.phases[i]);
+    double error_angle = wave_params_.theta[i] - desired_angle;
+    double error_angle_dt = wave_params_.theta_dt[i] - desired_angle_dt;
+    if (head_strategy_count_down_ > 0) {
+      wave_params_.theta_dt[i] = 0.1 * error_angle - 0.1 * error_angle_dt;
+    } else {
+      wave_params_.theta_dt[i] =
+          desired_angle_dt - 0.8 * error_angle - 0.8 * error_angle_dt;
+    }
+  }
+
+  ApplyHeadStrategy();
+
+  for (size_t i = 0; i < kNumJoints; ++i) {
+    wave_params_.theta[i] += wave_params_.theta_dt[i] * dt;
+  }
+}
+
+void Controller::ApplyWaveParams() {
+  const size_t kNumJoints = robot_->motors.size();
+  for (size_t i = 0; i < kNumJoints; ++i) {
+    motor_functions_[i]->SetAngle(wave_params_.theta[i]);
+    motor_functions_[i]->SetAngleDt(wave_params_.theta_dt[i]);
+  }
+}
+
+void Controller::ExtractContactForces() {
+  contact_reporter_->Reset();
+  ch_system_->GetContactContainer()->ReportAllContacts(contact_reporter_);
+  contact_forces_ = contact_reporter_->GetContactForces();
+}
+
+std::vector<size_t> Controller::CharacterizeContacts() {
+  std::vector<size_t> useful_contact_segs;
+  // examine the contact force distribution along the body
+  const double kNumSegs = robot_->rigid_bodies.size();
+  // Ignore the first few head contact
+  for (size_t i = 0; i < kNumSegs - 1; ++i) {
+    if (contact_forces_[i].Length() < 1e-2) {
+      // ignore this force;
+      continue;
+    }
+    ChVector<> link_z =
+        robot_->rigid_bodies[i]->TransformDirectionLocalToParent(
+            ChVector<>(0, 0, 1));
+    int contact_side = 0;
+    if (dot(contact_forces_[i], link_z) < 0) {
+      // contact on the right side
+      contact_side = 1;
+    } else {
+      contact_side = -1;
+    }
+
+    // Now we can determine if this contact force is at the right phase
+    double dth = motor_functions_[i]->Get_y_dx(0);
+    // dth and contact_side should have different sign
+    if (dth * contact_side < 0) {
+      useful_contact_segs.push_back(i);
+    }
+  }
+  return useful_contact_segs;
 }
 
 void Controller::Step(double dt) {
   // ProcessCommandQueue(dt);
   // Will not overflow.
   steps_++;
-  // For the simulation duration if won't overflow.
-  if (true) {
-    for (auto &motor_function : motor_functions_) {
-      motor_function->Step(dt);
-    }
+  ExtractContactForces();
+  auto contact_indices = CharacterizeContacts();
+  if (!contact_indices.empty()) {
+    has_contact_ = true;
   }
 
   // Update all window params according to the compliance parameter
-  UpdateWindowParams(dt);
+  UpdateAmplitudes(dt);
+  UpdatePhases(dt);
+  UpdateAngles(dt);
   // Apply the window params.
-  ApplyWindowParams();
+  ApplyWaveParams();
   // Propagate the windows from head to tail
+  PropagateWaveParams(dt);
 
-  PropagateWindows(dt);
+  // auto contact_positions = CharacterizeContacts();
 }
-
-int Controller::DetermineContactPosition() {
-  if (enable_head_grab_ == false) {
-    // Extract the contact information.
-    contact_reporter_->Reset();
-    ch_system_->GetContactContainer()->ReportAllContacts2(contact_reporter_);
-    auto contact_forces = contact_reporter_->GetContactForces();
-    // examine the contact force distribution along the body
-    const double kNumSegs = robot_->rigid_bodies.size();
-    // for (size_t i = 0; i < kNumSegs; ++i) {
-    //   double total_force = contact_forces[i].Length();
-    //   std::cout << total_force << ",";
-    // }
-    // std::cout << std::endl;
-    for (size_t i = 0; i < kNumSegs; ++i) {
-      double total_force = contact_forces[i].Length();
-      // std::cout << total_force << std::endl;
-      // std::cout << i << " " << total_force << std::endl;
-      if (total_force > 0) {
-        // There is a contact at ith segment, we have to
-        // std::cout << i << " " <<
-        // remainder(motor_functions_[i]->GetCurrentPhase(),
-        //                                    chrono::CH_C_PI)
-        //           << std::endl;
-        if (i > 20 & i <= 27) {
-          enable_head_grab_ = true;
-          last_contact_index_ = i;
-          grab_count_down_ = 30;
-          return i;
-        }
-      }
-    }
-    return -1;
-  } else {
-    grab_count_down_--;
-    if (grab_count_down_ <= 0) {
-      enable_head_grab_ = false;
-    }
-    return last_contact_index_;
-  }
-}
-
-// double Controller::GenerateHeadGrabShapeForce() {
-//   // Determine if grab is needed
-//   if (!enable_head_grab_) {
-//     int seg_idx = DetermineGrab();
-//     if (seg_idx >= 24) {
-//       enable_head_grab_ = true;
-//     }
-//     grab_count_down_ = 30;
-//   }
-//
-//   if (enable_head_grab_) {
-//     // double head_phase =
-//     //     motor_functions_[robot_->motors.size() - 1]->GetCurrentPhase();
-//     // std::cout << head_phase << std::endl;
-//     if (grab_count_down_ < 0) {
-//       enable_head_grab_ = false;
-//     }
-//     grab_count_down_--;
-//     return 15;
-//   }
-//   return 0;
-// }
 
 size_t Controller::GetNumMotors() { return robot_->motors.size(); }
 
 void Controller::EnablePIDMotorControl() {
+  InitializeWaveParams();
   motor_functions_.resize(0);
-  auto &motors = robot_->motors;
-  for (size_t i = 0; i < motors.size(); ++i) {
-    motor_functions_.emplace_back(
-        new ChFunctionMotor(default_amplitude_, default_frequency_,
-                            double(i * num_waves_) / motors.size() * CH_C_2PI));
-    motors[i]->Initialize(motor_functions_[i], ChLinkEngine::ENG_MODE_TORQUE);
+  for (size_t i = 0; i < robot_->motors.size(); ++i) {
+    motor_functions_.emplace_back(new ChFunctionMotor(
+        wave_params_.amplitudes[i] * sin(wave_params_.phases[i]), 0));
+    robot_->motors[i]->Initialize(motor_functions_[i],
+                                  ChLinkEngine::ENG_MODE_TORQUE);
   }
 }
 
 void Controller::EnablePosMotorControl() {
   motor_functions_.resize(0);
-  auto &motors = robot_->motors;
-  for (size_t i = 0; i < motors.size(); ++i) {
-    motor_functions_.emplace_back(
-        new ChFunctionMotor(default_amplitude_, default_frequency_,
-                            double(i * num_waves_) / motors.size() * CH_C_2PI));
-    motors[i]->Initialize(motor_functions_[i], ChLinkEngine::ENG_MODE_ROTATION);
+  for (size_t i = 0; i < robot_->motors.size(); ++i) {
+    motor_functions_.emplace_back(new ChFunctionMotor(
+        wave_params_.amplitudes[i] * sin(wave_params_.phases[i]), 0));
+    robot_->motors[i]->Initialize(motor_functions_[i],
+                                  ChLinkEngine::ENG_MODE_ROTATION);
   }
 }

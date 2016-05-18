@@ -1,7 +1,7 @@
 #include <chrono_irrlicht/ChIrrApp.h>
 
-#include "include/gui.h"
 #include "include/controller.h"
+#include "include/gui.h"
 
 using namespace irr;
 using namespace core;
@@ -12,20 +12,23 @@ using namespace gui;
 
 inline int wtoi(const wchar_t *str) { return (int)wcstol(str, 0, 10); }
 
-MyEventReceiver::MyEventReceiver(ChIrrApp *app, Controller *controller)
+MyEventReceiver::MyEventReceiver(chrono::irrlicht::ChIrrApp *app,
+                                 Controller *controller)
     : ch_app_(app), controller_(controller), space_key_down_(false) {
   gui::IGUIEnvironment *mygui = ch_app_->GetIGUIEnvironment();
 
   // now let us define some gui layout;
-  mygui->addStaticText(L"pause physics:", core::rect<s32>(220, 10, 300, 30),
-                       false, false, 0, 101)
+  mygui
+      ->addStaticText(L"pause physics:", core::rect<s32>(220, 10, 300, 30),
+                      false, false, 0, 101)
       ->setTextAlignment(EGUIA_CENTER, EGUIA_CENTER);
   checkbox_pause_sim_ =
       mygui->addCheckBox(false, core::rect<s32>(300, 10, 320, 30), 0, 102, L"");
   ch_app_->SetPaused(checkbox_pause_sim_->isChecked());
 
-  mygui->addStaticText(L"time step:", core::rect<s32>(330, 10, 380, 30), false,
-                       false, 0, 103)
+  mygui
+      ->addStaticText(L"time step:", core::rect<s32>(330, 10, 380, 30), false,
+                      false, 0, 103)
       ->setTextAlignment(EGUIA_CENTER, EGUIA_CENTER);
   edbox_time_step_ = mygui->addEditBox(
       L"1e-2", core::rect<s32>(380, 10, 430, 30), true, 0, 104);

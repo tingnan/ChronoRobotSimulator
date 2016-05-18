@@ -12,8 +12,8 @@ namespace chrono {
 
 class ChFunctionPID : public ChFunction {
 public:
-  ChFunctionPID(ChSharedPtr<ChFunction> motor_funct,
-                ChSharedPtr<ChLinkEngine> engine)
+  ChFunctionPID(std::shared_ptr<ChFunction> motor_funct,
+                std::shared_ptr<ChLinkEngine> engine)
       : motor_funct_(motor_funct), engine_(engine) {}
   ~ChFunctionPID() {}
   ChFunction *new_Duplicate() {
@@ -31,16 +31,17 @@ protected:
   double a_limit_ = 1.2;
 
   double cum_error_ = 0;
-  ChSharedPtr<ChFunction> motor_funct_;
-  ChSharedPtr<ChLinkEngine> engine_;
+  std::shared_ptr<ChFunction> motor_funct_;
+  std::shared_ptr<ChLinkEngine> engine_;
 };
 
-class ChServoMotor : public ChShared {
+class ChServoMotor {
 public:
-  explicit ChServoMotor(ChSharedPtr<ChLinkEngine> engine) : engine_(engine) {}
-  void Initialize(ChSharedPtr<ChFunction> motor_funct,
+  explicit ChServoMotor(std::shared_ptr<ChLinkEngine> engine)
+      : engine_(engine) {}
+  void Initialize(std::shared_ptr<ChFunction> motor_funct,
                   ChLinkEngine::eCh_eng_mode mode_flag);
-  void Serialize();
+  int GetMotorID() { return engine_->GetIdentifier(); }
   double GetMotorRotation() { return engine_->Get_mot_rot(); }
   double GetMotorTorque() {
     if (motor_mode_ == ChLinkEngine::ENG_MODE_ROTATION) {
@@ -51,7 +52,7 @@ public:
 
 private:
   // The underlying ChLinkEngine used.
-  ChSharedPtr<ChLinkEngine> engine_;
+  std::shared_ptr<ChLinkEngine> engine_;
   ChLinkEngine::eCh_eng_mode motor_mode_;
 };
 

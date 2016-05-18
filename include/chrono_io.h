@@ -1,25 +1,17 @@
 #ifndef INCLUDE_CHRONOIO_H_
 #define INCLUDE_CHRONOIO_H_
 
-#include <vector>
-#include <string>
 #include <fstream>
+#include <string>
+#include <vector>
 
 #include "include/rft.h"
+#include "include/servo_motor.h"
 
-// namespace chrono {
-// class ChSystem;
-// class ChBody;
-// class ChLinkEngine;
-// } // namespace chrono
-//
-// void SerializeBodies(std::vector<chrono::ChBody *> &body_list,
-//                      std::ofstream &mov_file);
-// void SerializeContacts(std::vector<chrono::ChBody *> &body_list,
-//                        std::ofstream &cot_file);
-// void SerializeEngines(std::vector<chrono::ChLinkEngine *> &engine_list,
-//                       std::ofstream &jnt_file);
-// void SerializeRFTForce(std::vector<RFTBody> &rft_body_list,
-//                        std::ofstream &rft_file);
+void LogBodies(std::vector<std::shared_ptr<chrono::ChBody>> &body_list,
+               std::ostream &stream);
+
+void LogMotors(std::vector<std::shared_ptr<chrono::ChServoMotor>> &motor_list,
+               std::ostream &stream);
 
 #endif // INCLUDE_CHRONOIO_H_
