@@ -39,7 +39,6 @@ public:
   size_t GetNumMotors();
   // Get the phase of i_th motor;
   double GetPhase(size_t i);
-  bool HasContact();
   // The PID based positio control
   void EnablePIDMotorControl();
   // The "perfect" control
@@ -53,10 +52,10 @@ private:
   void PropagateWave();
   void UpdateSnakeShape();
   void ExtractContactForces();
-  void EnableHeadWrap();
-  int head_strategy_count_down_ = -50;
-  int head_index_ = 0;
-  bool has_contact_ = false;
+  void Wrap();
+  void Wiggle();
+  int num_contacts_ = 0;
+  int contact_index_ = 0;
   // Grab and glide control based on torque. First we determine whether to grab.
   std::vector<size_t> CharacterizeContacts();
 
@@ -69,13 +68,6 @@ private:
   std::vector<chrono::ChVector<>> contact_forces_;
 
   WaveParams wave_params_;
-  // Parameters for the position control.
-  // double default_amplitude_ = 0.40;
-  // double default_frequency_ = 0.20 * chrono::CH_C_2PI;
-  // double group_velocity_ = 0.05;
-  // double num_waves_ = default_frequency_ / chrono::CH_C_2PI /
-  // group_velocity_;
-
   // motor functions to be adjusted based on the window it belongs to
   std::vector<std::shared_ptr<chrono::ChFunctionMotor>> motor_functions_;
   // step count

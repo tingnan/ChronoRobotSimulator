@@ -61,9 +61,7 @@ double Controller::GetPhase(size_t i) {
          double(kNumJoints - i - 1) * num_waves / kNumJoints * CH_C_2PI;
 }
 
-bool Controller::HasContact() { return has_contact_; }
-
-void Controller::EnableHeadWrap() {
+void Controller::Wrap() {
   // if (head_strategy_count_down_ == -50) {
   //   auto contact_indices = CharacterizeContacts();
   //   if (contact_indices.empty() || contact_indices.size() >= 3) {
@@ -108,6 +106,7 @@ void Controller::ExtractContactForces() {
 }
 
 std::vector<size_t> Controller::CharacterizeContacts() {
+  ExtractContactForces();
   std::vector<size_t> useful_contact_segs;
   // examine the contact force distribution along the body
   const double kNumSegs = robot_->rigid_bodies.size();
@@ -138,15 +137,13 @@ std::vector<size_t> Controller::CharacterizeContacts() {
   return useful_contact_segs;
 }
 
+void Controller::Wiggle() {}
+
 void Controller::Step(double dt) {
   // ProcessCommandQueue(dt);
   // Will not overflow.
   steps_++;
-  ExtractContactForces();
   auto contact_indices = CharacterizeContacts();
-  if (!contact_indices.empty()) {
-    has_contact_ = true;
-  }
 }
 
 size_t Controller::GetNumMotors() { return robot_->motors.size(); }
