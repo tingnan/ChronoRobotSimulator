@@ -17,22 +17,18 @@ class ContactExtractor;
 }
 
 struct WaveParams {
-  double wave_speed = 0.05;
-  double desired_amplitude = 0.35;
-  double initial_phase = 0.0;
-  // the amplitude modifier
-  std::vector<double> amplitudes;
-  std::vector<double> amplitudes_dt;
+  // The normalized wave_speed;
+  double wave_speed = 0.1;
+  double amplitude = 0.35;
+  double head_phase = 0.0;
+
   // The temporal frequency and number of waves are dependent. Once the wave
   // group speed is determined the number of waves are extracted.
   // Suppose we use 1.5 waves along the body
   double frequency = 2 * chrono::CH_C_2PI * wave_speed * 1.5;
-  std::vector<double> phases;
-  std::vector<double> phases_dt;
-  std::vector<double> desired_phases;
-
   std::vector<double> theta;
   std::vector<double> theta_dt;
+  std::vector<double> theta_ref;
 };
 
 class Controller {
@@ -54,25 +50,15 @@ public:
 private:
   // Generate a new window, maybe taken from the recycled window
   void InitializeWaveParams();
-  // Update wave params using the compliance params
-  void UpdateAmplitudes(double dt);
-  void UpdatePhases(double dt);
-  void UpdateAngles(double dt);
-  // Apply window params to motor functions
-  void PropagateWaveParams(double dt);
-  void ApplyWaveParams();
-
+  void PropagateWave();
+  void UpdateSnakeShape();
   void ExtractContactForces();
-  void ApplyHeadStrategy();
+  void EnableHeadWrap();
   int head_strategy_count_down_ = -50;
   int head_index_ = 0;
   bool has_contact_ = false;
   // Grab and glide control based on torque. First we determine whether to grab.
   std::vector<size_t> CharacterizeContacts();
-
-  // The torques at each joint contributed from the contact force and/or media
-  // resistance.
-  Eigen::VectorXd ComputeInternalTorque();
 
   // Core components
   chrono::ChSystem *ch_system_;

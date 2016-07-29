@@ -154,10 +154,10 @@ int main(int argc, char *argv[]) {
   ch_app.SetVideoframeSave(false);
   ch_app.SetVideoframeSaveInterval(save_step);
   bool enable_peg = 0;
-  double initial_phase = controller.GetPhase(0);
+  double head_phase = controller.GetPhase(0);
   bool has_contact = false;
   while (ch_app.GetDevice()->run() &&
-         initial_phase + 1.05 * chrono::CH_C_2PI > controller.GetPhase(0)) {
+         head_phase + 1.05 * chrono::CH_C_2PI > controller.GetPhase(0)) {
     // the core simulation part
     controller.Step(ch_app.GetTimestep());
     ch_app.DoStep();
@@ -172,7 +172,7 @@ int main(int argc, char *argv[]) {
     if (count == save_step - 1) {
       if (has_contact == false && controller.HasContact() == true) {
         has_contact = true;
-        initial_phase = controller.GetPhase(0);
+        head_phase = controller.GetPhase(0);
       }
 
       ch_app.GetVideoDriver()->beginScene(true, true,
