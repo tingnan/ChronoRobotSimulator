@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
   int save_step = 4e-2 / ch_app.GetTimestep();
 
   // Use a controller
-  Controller controller(&ch_system, &i_robot);
+  Controller controller(&ch_system, &i_robot, ch_app.GetTimestep());
 
   // Now set the controller params.
   if (argc < 4) {
@@ -156,9 +156,9 @@ int main(int argc, char *argv[]) {
   bool enable_peg = 0;
   double head_phase = controller.GetPhase(0);
   while (ch_app.GetDevice()->run() &&
-         head_phase + 1.05 * chrono::CH_C_2PI > controller.GetPhase(0)) {
+         head_phase + 3 * chrono::CH_C_2PI > controller.GetPhase(0)) {
     // the core simulation part
-    controller.Step(ch_app.GetTimestep());
+    controller.Step();
     ch_app.DoStep();
     if (!enable_peg && ch_system.GetChTime() > 5.0) {
       BuildWorld(ch_app.GetSystem(), lattice_params);

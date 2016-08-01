@@ -18,24 +18,24 @@ class ContactExtractor;
 
 struct WaveParams {
   // The normalized wave_speed;
-  double wave_speed = 0.1;
+  double num_waves = 1.5;
   double amplitude = 0.35;
   double head_phase = 0.0;
 
-  // The temporal frequency and number of waves are dependent. Once the wave
-  // group speed is determined the number of waves are extracted.
-  // Suppose we use 1.5 waves along the body
-  double frequency = 2 * chrono::CH_C_2PI * wave_speed * 1.5;
+  double frequency = 2 * chrono::CH_C_2PI * 0.1;
   std::vector<double> theta;
   std::vector<double> theta_dt;
   std::vector<double> theta_ref;
 };
 
+enum class SnakeRobotState { wiggle, wrap, offset };
+
 class Controller {
 public:
-  Controller(chrono::ChSystem *ch_system, class Robot *i_robot);
+  Controller(chrono::ChSystem *ch_system, class Robot *i_robot,
+             double time_step);
   // Step the controller
-  void Step(double dt);
+  void Step();
   size_t GetNumMotors();
   // Get the phase of i_th motor;
   double GetPhase(size_t i);
@@ -54,10 +54,13 @@ private:
   void ExtractContactForces();
   void Wrap();
   void Wiggle();
-  int num_contacts_ = 0;
-  int contact_index_ = 0;
   // Grab and glide control based on torque. First we determine whether to grab.
-  std::vector<size_t> CharacterizeContacts();
+  void CharacterizeContacts();
+  int contact_side_ = 0;
+  int contact_index_ = 0;
+  int wrap_count_down_;
+  // System state switcher
+  SnakeRobotState system_state_ = SnakeRobotState::wiggle;
 
   // Core components
   chrono::ChSystem *ch_system_;
@@ -72,5 +75,6 @@ private:
   std::vector<std::shared_ptr<chrono::ChFunctionMotor>> motor_functions_;
   // step count
   size_t steps_ = 0;
+  double time_step_ = 0.01;
 };
 #endif // INCLUDE_CHFUNCTION_CONTROLLER_H_
