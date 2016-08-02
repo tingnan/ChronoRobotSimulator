@@ -103,11 +103,10 @@ void Controller::CharacterizeContacts() {
       system_state_ = SnakeRobotState::wrap;
       wrap_count_down_ = 200;
       std::fill(wave_params_.theta_dt.begin(), wave_params_.theta_dt.end(), 0);
-      const size_t min_index = fmax(contact_index_ - 3, 0);
-      const size_t max_index = fmin(contact_index_ + 3, kNumSegs);
+      const size_t min_index = fmax(contact_index_ - 5, 0);
+      const size_t max_index = fmin(contact_index_ + 5, kNumSegs);
       for (size_t i = min_index; i < max_index; ++i) {
-        wave_params_.theta_ref[i] = contact_side_ * chrono::CH_C_PI / 10.0;
-        std::cout << wave_params_.theta_ref[i] << std::endl;
+        wave_params_.theta_ref[i] = contact_side_ * chrono::CH_C_PI / 12.0;
         wave_params_.theta_dt[i] =
             (wave_params_.theta_ref[i] - wave_params_.theta[i]) /
             wrap_count_down_;
@@ -117,6 +116,11 @@ void Controller::CharacterizeContacts() {
   }
 }
 
+double LinearInterp(double base, double target, double ratio) {
+  return (target - base) * ratio + base;
+}
+
+std::ofstream ref_output("tmp.txt");
 void Controller::PropagateWave() {
   wave_params_.head_phase = wave_params_.frequency * steps_ * time_step_;
   const size_t kNumSegs = robot_->rigid_bodies.size();
@@ -124,43 +128,59 @@ void Controller::PropagateWave() {
                        wave_params_.frequency / time_step_;
   size_t propagation_interval = double(total_steps) / kNumSegs;
   size_t rem_step = steps_ % propagation_interval;
+  double current_head_angle =
+      wave_params_.amplitude * sin(GetPhase(kNumSegs - 1)) +
+      wave_params_.amp_offset;
   if (rem_step == 0) {
     // now do the shift back
     for (size_t i = 0; i < kNumSegs - 1; ++i) {
+
       wave_params_.theta_ref[i] = wave_params_.theta_ref[i + 1];
     }
-    wave_params_.theta_ref[kNumSegs - 1] =
-        wave_params_.amplitude * sin(GetPhase(kNumSegs - 1));
+
+    wave_params_.theta_ref[kNumSegs - 1] = current_head_angle;
   }
 
   double rem_ratio = double(rem_step) / propagation_interval;
   for (size_t i = 0; i < kNumSegs - 1; ++i) {
-    wave_params_.theta[i] =
-        (wave_params_.theta_ref[i + 1] - wave_params_.theta_ref[i]) *
-            rem_ratio +
-        wave_params_.theta_ref[i];
+    wave_params_.theta[i] = LinearInterp(
+        wave_params_.theta_ref[i], wave_params_.theta_ref[i + 1], rem_ratio);
+    ref_output << wave_params_.theta[i] << " ";
   }
-  wave_params_.theta[kNumSegs - 1] =
-      rem_ratio * (wave_params_.amplitude * sin(GetPhase(kNumSegs - 1)) -
-                   wave_params_.theta_ref[kNumSegs - 1]) *
-          rem_ratio +
-      wave_params_.theta_ref[kNumSegs - 1];
+  ref_output << std::endl;
+  wave_params_.theta[kNumSegs - 1] = LinearInterp(
+      wave_params_.theta_ref[kNumSegs - 1], current_head_angle, rem_ratio);
 }
 
 void Controller::Wrap() {
+
+  if (wrap_count_down_ <= 0) {
+    system_state_ = SnakeRobotState::offset;
+    offset_count_down_ = 1500;
+    wave_params_.amp_offset = -contact_side_ * 0.10;
+  }
+
+  wrap_count_down_--;
   const size_t kNumSegs = robot_->rigid_bodies.size();
   for (size_t i = 0; i < kNumSegs; ++i) {
     wave_params_.theta[i] += wave_params_.theta_dt[i];
   }
+}
 
-  wrap_count_down_--;
-  if (wrap_count_down_ <= 0) {
-    system_state_ = SnakeRobotState::offset;
+void Controller::Offset() {
+  if (offset_count_down_ <= 0) {
+    system_state_ = SnakeRobotState::wiggle;
+    wave_params_.amp_offset = 0;
   }
+  steps_++;
+  offset_count_down_--;
+  PropagateWave();
 }
 
 void Controller::Wiggle() {
+
   steps_++;
+
   PropagateWave();
 }
 
@@ -177,7 +197,7 @@ void Controller::Step() {
     Wrap();
     break;
   default:
-    Wiggle();
+    Offset();
     break;
   }
   UpdateSnakeShape();

@@ -85,33 +85,36 @@ void DrawVector(chrono::irrlicht::ChIrrApp *ch_app, const ChVector<> &pos,
 
 inline double hevistep(double x) { return x > 0 ? 1 : (x < 0 ? -1 : 0); }
 
-void ForceSand(double deltah, double cospsi, double sinpsi, double area,
-               double *fnorm, double *fpara) {
-  // prefac = k * rho * g * z * A * reduction_factor
-  double prefac = 2.5 * 2470 * 9.81 * deltah * area * 5.0e-2;
-  *fpara = prefac * sinpsi * 0.5;
-  const double tan2gamm0 = 0.060330932472924;
-  *fnorm =
-      prefac * cospsi * 0.5 + 0 * (1 + 1.8 / sqrt(tan2gamm0 + cospsi * cospsi));
-}
+// void ForceSand(double deltah, double cospsi, double sinpsi, double area,
+//                double *fnorm, double *fpara) {
+//   // prefac = k * rho * g * z * A * reduction_factor
+//   double prefac = 2.5 * 2470 * 9.81 * deltah * area * 5.0e-2;
+//   *fpara = prefac * sinpsi * 0.5;
+//   const double tan2gamm0 = 0.060330932472924;
+//   *fnorm =
+//       prefac * cospsi * 0.5 + 0 * (1 + 1.8 / sqrt(tan2gamm0 + cospsi *
+//       cospsi));
+// }
+//
+// void ForceBB(double deltah, double cospsi, double sinpsi, double area,
+//              double *fnorm, double *fpara) {
+//   double prefac = area * deltah / (0.00112 * 0.076);
+//   double CS = 3.21;
+//   double gamma = 2.79;
+//   double CF = 1.34;
+//   double CL = -0.82;
+//   *fnorm =
+//       prefac * CS * gamma * cospsi / sqrt(1 + gamma * gamma * cospsi *
+//       cospsi);
+//   *fpara = 1 * prefac * (CF * sinpsi + CL * (1 - cospsi));
+// }
 
-void ForceBB(double deltah, double cospsi, double sinpsi, double area,
-             double *fnorm, double *fpara) {
-  double prefac = area * deltah / (0.00112 * 0.076);
-  double CS = 3.21;
-  double gamma = 2.79;
-  double CF = 1.34;
-  double CL = -0.82;
-  *fnorm =
-      prefac * CS * gamma * cospsi / sqrt(1 + gamma * gamma * cospsi * cospsi);
-  *fpara = 1 * prefac * (CF * sinpsi + CL * (1 - cospsi));
-}
-
-void ForceHu(double deltah, double cospsi, double sinpsi, double area,
-             double *fnorm, double *fpara) {
+// Based on the Hu paper, but with different params.
+void RFTForceFunction(double deltah, double cospsi, double sinpsi, double area,
+                      double *fnorm, double *fpara) {
   // cospsi (n \cdot v), sinpsi (t \cdot v)
-  // force is proportional to velocity as well
-  double prefac = 9.81 * deltah * area * 1.5e3;
+  // the prefac determines the strength/friction coefficient of the substrate.
+  double prefac = 9.81 * deltah * area * 2e3;
   double mu_t = 0.10, mu_f = 0.10, mu_b = 0.10;
   *fnorm = prefac * mu_t * cospsi;
   *fpara = prefac * (mu_f * hevistep(sinpsi) + mu_b * (1 - hevistep(sinpsi))) *
@@ -303,7 +306,7 @@ void RFTSystem::InteractPieceHorizontal(
     }
     sinpsi = fabs(sinpsi);
     double fnorm, fpara;
-    ForceHu(-height, cospsi, sinpsi, area, &fnorm, &fpara);
+    RFTForceFunction(-height, cospsi, sinpsi, area, &fnorm, &fpara);
     force = fnorm * frame_normal + fpara * frame_tangent;
   } else {
     force = ChVector<>(0.0, 0.0, 0.0);

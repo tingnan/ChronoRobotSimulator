@@ -20,6 +20,7 @@ struct WaveParams {
   // The normalized wave_speed;
   double num_waves = 1.5;
   double amplitude = 0.35;
+  double amp_offset = 0.0;
   double head_phase = 0.0;
 
   double frequency = 2 * chrono::CH_C_2PI * 0.1;
@@ -54,11 +55,13 @@ private:
   void ExtractContactForces();
   void Wrap();
   void Wiggle();
+  void Offset();
   // Grab and glide control based on torque. First we determine whether to grab.
   void CharacterizeContacts();
   int contact_side_ = 0;
   int contact_index_ = 0;
   int wrap_count_down_;
+  int offset_count_down_;
   // System state switcher
   SnakeRobotState system_state_ = SnakeRobotState::wiggle;
 
