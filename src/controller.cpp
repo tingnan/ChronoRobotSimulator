@@ -101,7 +101,7 @@ void Controller::CharacterizeContacts() {
       contact_side_ = contact_side;
       contact_index_ = i;
       system_state_ = SnakeRobotState::wrap;
-      wrap_count_down_ = 200;
+      wrap_count_down_ = 500;
       std::fill(wave_params_.theta_dt.begin(), wave_params_.theta_dt.end(), 0);
       const size_t min_index = fmax(contact_index_ - 5, 0);
       const size_t max_index = fmin(contact_index_ + 5, kNumSegs);
