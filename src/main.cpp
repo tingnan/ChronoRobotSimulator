@@ -107,13 +107,13 @@ int main(int argc, char *argv[]) {
 
   // now let us build the robot_builder;
   Json::Value lattice_params;
-  if (argc < 2) {
-    std::cout << "no lattice params input!\n";
-    exit(0);
-  }
-  lattice_params["spacing"] = atof(argv[1]);
+  // if (argc < 2) {
+  //   std::cout << "no lattice params input!\n";
+  //   exit(0);
+  // }
+  lattice_params["spacing"] = 0.5; // atof(argv[1]);
   Json::Value robot_params;
-  robot_params["initial_position"] = atof(argv[4]);
+  robot_params["initial_position"] = atof(argv[3]);
   Robot i_robot = BuildRobot(ch_app.GetSystem(), robot_params);
   ch_app.AssetBindAll();
   ch_app.AssetUpdateAll();
@@ -140,8 +140,8 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
   Json::Value command_params;
-  command_params["num_waves"] = atof(argv[2]);
-  command_params["amplitude"] = atof(argv[3]);
+  command_params["num_waves"] = atof(argv[1]);
+  command_params["amplitude"] = atof(argv[2]);
 
   controller.SetDefaultParams(command_params);
   controller.EnablePosMotorControl();
